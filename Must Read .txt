@@ -1,4 +1,8 @@
 # LMS 
+
+User :- admin  
+password :- admin
+
 To Use this LMS ( Library Management System  ) 
 Must install Python version 3.10 or higher 
 
