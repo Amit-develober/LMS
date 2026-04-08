@@ -1,0 +1,11 @@
+# LMS 
+To Use this LMS ( Library Management System  ) 
+Must install Python version 3.10 or higher 
+
+After the installation, click on the LMS.exe File 
+For the 1st time, Boot takes longer than usual, but after it opens in Your Browser.
+
+Developer :- Amit Kushwaha 
+data 4/8/2026
+
+
