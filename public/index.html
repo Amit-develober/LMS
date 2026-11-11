@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LMSQR — Smart Library Management System</title>
+  
+  <!-- Curated Aesthetic Typography: Plus Jakarta Sans & Outfit & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- QR Code Generator & Scanner -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <!-- Firebase v10 SDKs (ESM) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+    import { 
+      getAuth, 
+      signInWithEmailAndPassword, 
+      createUserWithEmailAndPassword, 
+      signOut, 
+      onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+    import { 
+      getFirestore, 
+      collection, 
+      doc, 
+      getDocs, 
+      getDoc, 
+      addDoc, 
+      updateDoc, 
+      query, 
+      where 
+    } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+    // Firebase Config provided by user (LMSQR Project)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCcJhWhsTeeJBzSJsFzIqnlzVaDN9Dk4go",
+      authDomain: "lmsqr-ffbfe.firebaseapp.com",
+      projectId: "lmsqr-ffbfe",
+      storageBucket: "lmsqr-ffbfe.firebasestorage.app",
+      messagingSenderId: "712085464398",
+      appId: "1:712085464398:web:7f0f43eb9a582201fc6a1f",
+      measurementId: "G-TMY4M7PH42"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.FirebaseServices = {
+      auth,
+      db,
+      signInWithEmailAndPassword,
+      createUserWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+      collection,
+      doc,
+      getDocs,
+      getDoc,
+      addDoc,
+      updateDoc,
+      query,
+      where
+    };
+
+    window.dispatchEvent(new Event("firebase-ready"));
+  </script>
+
+  <style>
+    :root {
+      --font-display: 'Outfit', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background-color: #090d16;
+      color: #f1f5f9;
+      overflow-x: hidden;
+    }
+
+    .font-display {
+      font-family: var(--font-display);
+    }
+
+    .font-mono-code {
+      font-family: var(--font-mono);
+    }
+
+    /* Ambient background mesh gradient */
+    .bg-mesh {
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.12) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(139, 92, 246, 0.1) 0px, transparent 50%);
+    }
+
+    /* Glassmorphism card styles */
+    .glass-card {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .glass-card-hover {
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-card-hover:hover {
+      transform: translateY(-2px);
+      border-color: rgba(99, 102, 241, 0.35);
+      box-shadow: 0 25px 50px -12px rgba(99, 102, 241, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+
+    .glass-input {
+      background: rgba(10, 15, 29, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+      transition: all 0.2s ease;
+    }
+    .glass-input:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25), inset 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Gradient buttons with luminous glow */
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%);
+      box-shadow: 0 8px 20px -4px rgba(99, 102, 241, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+      box-shadow: 0 12px 26px -4px rgba(99, 102, 241, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+    .btn-primary:active {
+      transform: translateY(1px);
+    }
+
+    .btn-emerald {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      box-shadow: 0 8px 20px -4px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+    .btn-emerald:hover {
+      box-shadow: 0 12px 24px -4px rgba(16, 185, 129, 0.6);
+      transform: translateY(-1px);
+    }
+
+    /* Subtle custom scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(99, 102, 241, 0.5);
+    }
+
+    /* Glowing indicator dot */
+    .indicator-pulse {
+      box-shadow: 0 0 10px #10b981;
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.9); }
+    }
+
+    /* Scanner Laser Animation */
+    .scanner-laser {
+      background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+      box-shadow: 0 0 15px #38bdf8;
+      animation: scanLaser 2.2s ease-in-out infinite alternate;
+    }
+    @keyframes scanLaser {
+      0% { top: 5%; }
+      100% { top: 92%; }
+    }
+  </style>
+</head>
+<body class="bg-mesh min-h-screen antialiased flex flex-col selection:bg-indigo-500 selection:text-white">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed top-6 right-6 z-50 flex flex-col gap-2.5 pointer-events-none"></div>
+
+  <!-- AUTH SECTION (Aesthetic Librarian Login / Signup) -->
+  <div id="auth-screen" class="min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
+    <!-- Ambient Blur Circles -->
+    <div class="absolute -top-32 -left-32 w-96 h-96 bg-indigo-600/25 rounded-full blur-[120px] pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-sky-500/20 rounded-full blur-[120px] pointer-events-none"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-violet-600/15 rounded-full blur-[100px] pointer-events-none"></div>
+
+    <div class="w-full max-w-md glass-card p-9 rounded-[2rem] relative z-10 border border-white/10 shadow-2xl">
+      <!-- Brand Header -->
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center p-3.5 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-sky-400 shadow-lg shadow-indigo-500/30 mb-4 ring-1 ring-white/20">
+          <i data-lucide="library" class="w-7 h-7 text-white"></i>
+        </div>
+        <h1 class="text-3xl font-black font-display tracking-tight text-white flex items-center justify-center gap-2">
+          <span>LMSQR</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Pro</span>
+        </h1>
+        <p class="text-slate-400 text-sm mt-1.5 font-medium">Smart QR Library Management System</p>
+      </div>
+
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-2">Librarian Email</label>
+          <div class="relative">
+            <i data-lucide="mail" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="email" id="login-email" required placeholder="admin@library.com" 
+              class="w-full glass-input rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-2">Password</label>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="password" id="login-password" required placeholder="••••••••" 
+              class="w-full glass-input rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none">
+          </div>
+        </div>
+
+        <button type="submit" id="login-submit-btn" 
+          class="w-full btn-primary font-bold py-3.5 rounded-xl text-sm text-white flex items-center justify-center gap-2 mt-4 tracking-wide">
+          <span>Sign In / Quick Access</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+
+        <div class="pt-3 text-center">
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/60 border border-white/5 text-[11px] text-slate-400">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 indicator-pulse"></span>
+            <span>Connected to Firebase <strong>LMSQR</strong></span>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APP WORKSPACE (Modern Sidebar + Viewport) -->
+  <div id="main-app" class="hidden min-h-screen flex flex-col md:flex-row bg-[#080c14] text-slate-100">
+    
+    <!-- SIDEBAR -->
+    <aside class="w-full md:w-68 bg-[#0b101c]/80 backdrop-blur-2xl border-r border-white/5 flex flex-col shrink-0">
+      
+      <!-- App Brand -->
+      <div class="p-5 border-b border-white/5 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-sky-400 flex items-center justify-center shadow-md shadow-indigo-500/25 ring-1 ring-white/20">
+            <i data-lucide="library" class="w-5 h-5 text-white"></i>
+          </div>
+          <div>
+            <h2 class="font-display font-extrabold text-white text-base tracking-tight leading-tight">LMSQR</h2>
+            <div class="flex items-center gap-1.5 text-[10px] text-emerald-400 font-semibold tracking-wider uppercase">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 indicator-pulse"></span>
+              <span>Live Firestore</span>
+            </div>
+          </div>
+        </div>
+        <button id="logout-btn" title="Sign Out" class="p-2 hover:bg-white/5 text-slate-400 hover:text-rose-400 rounded-xl transition">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Navigation Menu -->
+      <nav class="p-3 space-y-1 flex-1">
+        <button onclick="navigateTo('dashboard')" data-nav="dashboard" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <i data-lucide="layout-dashboard" class="w-4 h-4 text-indigo-400"></i>
+          <span>Overview</span>
+        </button>
+        <button onclick="navigateTo('scan')" data-nav="scan" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <i data-lucide="qr-code" class="w-4 h-4 text-sky-400"></i>
+          <span>Live QR Scanner</span>
+        </button>
+        <button onclick="navigateTo('books')" data-nav="books" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <i data-lucide="book-open" class="w-4 h-4 text-violet-400"></i>
+          <span>Book Inventory</span>
+        </button>
+        <button onclick="navigateTo('students')" data-nav="students" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <i data-lucide="users" class="w-4 h-4 text-pink-400"></i>
+          <span>Students Directory</span>
+        </button>
+        
+        <div class="pt-3 pb-1.5 px-3.5 text-[10px] uppercase font-bold tracking-widest text-slate-400">Transactions</div>
+
+        <button onclick="navigateTo('issue')" data-nav="issue" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <i data-lucide="book-plus" class="w-4 h-4 text-emerald-400"></i>
+          <span>Issue Book</span>
+        </button>
+        <button onclick="navigateTo('return')" data-nav="return" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <i data-lucide="book-check" class="w-4 h-4 text-amber-400"></i>
+          <span>Return Book</span>
+        </button>
+        <button onclick="navigateTo('history')" data-nav="history" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <i data-lucide="history" class="w-4 h-4 text-teal-400"></i>
+          <span>Audit History</span>
+        </button>
+      </nav>
+
+      <!-- Librarian Profile Capsule -->
+      <div class="p-3.5 m-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-sky-400 text-white flex items-center justify-center font-display font-bold text-sm shadow-md" id="user-avatar">
+          L
+        </div>
+        <div class="overflow-hidden flex-1">
+          <p class="text-xs font-bold text-white truncate" id="user-email-display">librarian@school.edu</p>
+          <p class="text-[10px] text-slate-400 font-medium">Head Librarian</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN VIEWPORT -->
+    <main class="flex-1 p-6 lg:p-9 overflow-y-auto max-h-screen custom-scrollbar">
+
+      <!-- ================= 1. OVERVIEW / DASHBOARD TAB ================= -->
+      <section id="tab-dashboard" class="tab-pane space-y-8 max-w-7xl mx-auto">
+        
+        <!-- Header Banner -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-6">
+          <div>
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold mb-2">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Live Analytics
+            </div>
+            <h2 class="text-3xl font-black font-display text-white tracking-tight">Library Dashboard</h2>
+            <p class="text-slate-400 text-sm mt-0.5">Real-time sync enabled with Firebase Firestore database.</p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button onclick="openModal('modal-add-book')" class="btn-primary text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 tracking-wide">
+              <i data-lucide="plus" class="w-4 h-4"></i> Add Book
+            </button>
+            <button onclick="navigateTo('scan')" class="btn-emerald text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 tracking-wide">
+              <i data-lucide="camera" class="w-4 h-4"></i> Scan QR
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 Stat Cards with Curated Hues & Micro-hover -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          
+          <div class="glass-card glass-card-hover p-5 rounded-2xl relative overflow-hidden group">
+            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Book Titles</span>
+              <div class="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"><i data-lucide="book" class="w-5 h-5"></i></div>
+            </div>
+            <p class="text-3xl font-black font-display text-white" id="stat-total-titles">0</p>
+            <p class="text-[11px] text-slate-400 mt-1 font-medium">Distinct catalog titles</p>
+          </div>
+
+          <div class="glass-card glass-card-hover p-5 rounded-2xl relative overflow-hidden group">
+            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-sky-500/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Physical Copies</span>
+              <div class="p-2.5 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20"><i data-lucide="layers" class="w-5 h-5"></i></div>
+            </div>
+            <p class="text-3xl font-black font-display text-white" id="stat-total-copies">0</p>
+            <p class="text-[11px] text-slate-400 mt-1 font-medium">Inventory on shelves & loan</p>
+          </div>
+
+          <div class="glass-card glass-card-hover p-5 rounded-2xl relative overflow-hidden group">
+            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-500/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Currently Issued</span>
+              <div class="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20"><i data-lucide="clock" class="w-5 h-5"></i></div>
+            </div>
+            <p class="text-3xl font-black font-display text-amber-400" id="stat-issued-copies">0</p>
+            <p class="text-[11px] text-slate-400 mt-1 font-medium">Active borrowed books</p>
+          </div>
+
+          <div class="glass-card glass-card-hover p-5 rounded-2xl relative overflow-hidden group">
+            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Students Registered</span>
+              <div class="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><i data-lucide="users" class="w-5 h-5"></i></div>
+            </div>
+            <p class="text-3xl font-black font-display text-emerald-400" id="stat-total-students">0</p>
+            <p class="text-[11px] text-slate-400 mt-1 font-medium">Active borrower profiles</p>
+          </div>
+
+        </div>
+
+        <!-- Quick Access Action Center & Recent Borrowers Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <div class="glass-card p-6 rounded-2xl space-y-4 lg:col-span-1">
+            <div class="flex items-center justify-between">
+              <h3 class="font-display font-bold text-white text-base flex items-center gap-2">
+                <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+                <span>Fast Actions</span>
+              </h3>
+            </div>
+            
+            <div class="space-y-2.5">
+              <button onclick="navigateTo('scan')" class="w-full p-3.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-sky-500/30 flex items-center justify-between group transition">
+                <div class="flex items-center gap-3">
+                  <div class="p-2 rounded-lg bg-sky-500/10 text-sky-400 group-hover:scale-110 transition-transform"><i data-lucide="camera" class="w-4 h-4"></i></div>
+                  <div class="text-left">
+                    <p class="text-xs font-bold text-white">Camera QR Scanner</p>
+                    <p class="text-[11px] text-slate-400">Scan physical book barcodes</p>
+                  </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 group-hover:text-white transition"></i>
+              </button>
+
+              <button onclick="navigateTo('issue')" class="w-full p-3.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-indigo-500/30 flex items-center justify-between group transition">
+                <div class="flex items-center gap-3">
+                  <div class="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 group-hover:scale-110 transition-transform"><i data-lucide="book-plus" class="w-4 h-4"></i></div>
+                  <div class="text-left">
+                    <p class="text-xs font-bold text-white">Issue Book Copy</p>
+                    <p class="text-[11px] text-slate-400">Assign book to student</p>
+                  </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 group-hover:text-white transition"></i>
+              </button>
+
+              <button onclick="openModal('modal-add-student')" class="w-full p-3.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-pink-500/30 flex items-center justify-between group transition">
+                <div class="flex items-center gap-3">
+                  <div class="p-2 rounded-lg bg-pink-500/10 text-pink-400 group-hover:scale-110 transition-transform"><i data-lucide="user-plus" class="w-4 h-4"></i></div>
+                  <div class="text-left">
+                    <p class="text-xs font-bold text-white">Enroll Student</p>
+                    <p class="text-[11px] text-slate-400">Add student with admission #</p>
+                  </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 group-hover:text-white transition"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Issues Table -->
+          <div class="glass-card p-6 rounded-2xl lg:col-span-2 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="font-display font-bold text-white text-base flex items-center gap-2">
+                <i data-lucide="activity" class="w-4 h-4 text-indigo-400"></i>
+                <span>Active Library Loans</span>
+              </h3>
+              <button onclick="navigateTo('history')" class="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition">View All &rarr;</button>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="text-slate-400 border-b border-white/5 pb-2">
+                    <th class="py-3 px-2 font-bold uppercase tracking-wider text-[10px]">Book Title</th>
+                    <th class="py-3 px-2 font-bold uppercase tracking-wider text-[10px]">Student Name</th>
+                    <th class="py-3 px-2 font-bold uppercase tracking-wider text-[10px]">Issue Date</th>
+                    <th class="py-3 px-2 font-bold uppercase tracking-wider text-[10px]">Due Date</th>
+                    <th class="py-3 px-2 text-right font-bold uppercase tracking-wider text-[10px]">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-issues-tbody" class="divide-y divide-white/5 text-slate-300">
+                  <tr><td colspan="5" class="py-8 text-center text-slate-400">Loading active issues...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ================= 2. QR SCANNER TAB ================= -->
+      <section id="tab-scan" class="tab-pane hidden space-y-6 max-w-2xl mx-auto">
+        <div class="text-center">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-bold mb-2">
+            <i data-lucide="scan" class="w-3.5 h-3.5"></i> Camera & Token Scanner
+          </div>
+          <h2 class="text-3xl font-black font-display text-white tracking-tight">QR Code Scanner</h2>
+          <p class="text-slate-400 text-sm mt-1">Scan physical book QR sticker or enter the token ID directly.</p>
+        </div>
+
+        <div class="glass-card rounded-3xl p-6 md:p-8 space-y-6 border border-white/10 shadow-2xl relative overflow-hidden">
+          
+          <!-- Scanner viewport container -->
+          <div class="relative rounded-2xl overflow-hidden border border-white/10 bg-black min-h-[260px] flex items-center justify-center text-slate-400 text-xs">
+            <div id="qr-reader" class="w-full">
+              <div class="flex flex-col items-center justify-center p-8 gap-3 text-slate-400">
+                <div class="p-4 rounded-2xl bg-white/5 border border-white/10 text-slate-400">
+                  <i data-lucide="camera" class="w-8 h-8"></i>
+                </div>
+                <span>Camera paused. Click "Start Camera" below to scan.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-3">
+            <button id="btn-start-scanner" onclick="startScanner()" class="flex-1 btn-emerald font-bold py-3.5 rounded-xl text-white text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition">
+              <i data-lucide="camera" class="w-4 h-4"></i>
+              <span>Start Camera Scanner</span>
+            </button>
+            <button id="btn-stop-scanner" onclick="stopScanner()" class="hidden px-6 bg-rose-600 hover:bg-rose-500 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition">
+              Stop Camera
+            </button>
+          </div>
+
+          <div class="relative flex py-1 items-center">
+            <div class="flex-grow border-t border-white/10"></div>
+            <span class="flex-shrink mx-4 text-[10px] uppercase tracking-widest text-slate-400 font-bold">Or Manual Token Lookup</span>
+            <div class="flex-grow border-t border-white/10"></div>
+          </div>
+
+          <form id="manual-qr-form" class="flex gap-2">
+            <input type="text" id="manual-qr-input" placeholder="Paste book QR token uuid..." 
+              class="flex-1 glass-input rounded-xl px-4 py-3 text-xs text-white focus:outline-none font-mono-code placeholder-slate-500">
+            <button type="submit" class="btn-primary px-6 font-bold rounded-xl text-xs text-white tracking-wide transition">
+              Lookup
+            </button>
+          </form>
+
+          <!-- Book result preview container -->
+          <div id="scanned-book-result" class="hidden rounded-2xl p-5 space-y-4 border border-indigo-500/30 bg-indigo-950/20">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 3. BOOKS INVENTORY TAB ================= -->
+      <section id="tab-books" class="tab-pane hidden space-y-6 max-w-7xl mx-auto">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-6">
+          <div>
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-semibold mb-2">
+              <i data-lucide="book-open" class="w-3.5 h-3.5"></i> Library Catalog
+            </div>
+            <h2 class="text-3xl font-black font-display text-white tracking-tight">Books Inventory</h2>
+            <p class="text-slate-400 text-sm mt-0.5">Manage library catalog, copies availability, and dynamic QR barcodes.</p>
+          </div>
+          <button onclick="openModal('modal-add-book')" class="btn-primary text-white px-5 py-3 rounded-xl text-xs font-bold flex items-center gap-2 tracking-wide self-start sm:self-auto">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Add New Book</span>
+          </button>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="glass-card p-4 rounded-2xl flex flex-col sm:flex-row gap-3">
+          <div class="relative flex-1">
+            <i data-lucide="search" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="text" id="books-search-input" oninput="renderBooksList()" placeholder="Search catalog by title, author, category, or ISBN..." 
+              class="w-full glass-input rounded-xl pl-11 pr-4 py-2.5 text-xs text-white focus:outline-none placeholder-slate-500">
+          </div>
+        </div>
+
+        <!-- Books Table -->
+        <div class="glass-card rounded-2xl overflow-hidden border border-white/5 shadow-xl">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-white/[0.02] text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-white/5">
+                <tr>
+                  <th class="p-4">Book Details</th>
+                  <th class="p-4">Category</th>
+                  <th class="p-4 text-center">Total Copies</th>
+                  <th class="p-4 text-center">In Shelf</th>
+                  <th class="p-4 text-center">QR Code</th>
+                  <th class="p-4 text-right">Quick Action</th>
+                </tr>
+              </thead>
+              <tbody id="books-table-body" class="divide-y divide-white/5 text-slate-300">
+                <tr><td colspan="6" class="p-8 text-center text-slate-400">Loading catalog...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 4. STUDENTS TAB ================= -->
+      <section id="tab-students" class="tab-pane hidden space-y-6 max-w-7xl mx-auto">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-6">
+          <div>
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-500/10 border border-pink-500/20 text-pink-300 text-xs font-semibold mb-2">
+              <i data-lucide="users" class="w-3.5 h-3.5"></i> Student Directory
+            </div>
+            <h2 class="text-3xl font-black font-display text-white tracking-tight">Enrolled Students</h2>
+            <p class="text-slate-400 text-sm mt-0.5">Register students and track active library borrowing allocations.</p>
+          </div>
+          <button onclick="openModal('modal-add-student')" class="btn-primary text-white px-5 py-3 rounded-xl text-xs font-bold flex items-center gap-2 tracking-wide self-start sm:self-auto">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+            <span>Register Student</span>
+          </button>
+        </div>
+
+        <div class="glass-card p-4 rounded-2xl">
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="text" id="students-search-input" oninput="renderStudentsList()" placeholder="Filter by student name or admission number..." 
+              class="w-full glass-input rounded-xl pl-11 pr-4 py-2.5 text-xs text-white focus:outline-none placeholder-slate-500">
+          </div>
+        </div>
+
+        <div class="glass-card rounded-2xl overflow-hidden border border-white/5 shadow-xl">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-white/[0.02] text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-white/5">
+                <tr>
+                  <th class="p-4">Student Name</th>
+                  <th class="p-4">Admission #</th>
+                  <th class="p-4">Grade & Section</th>
+                  <th class="p-4 text-center">Active Borrows</th>
+                  <th class="p-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="students-table-body" class="divide-y divide-white/5 text-slate-300">
+                <tr><td colspan="5" class="p-8 text-center text-slate-400">Loading student directory...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 5. ISSUE BOOK TAB ================= -->
+      <section id="tab-issue" class="tab-pane hidden space-y-6 max-w-xl mx-auto">
+        <div class="text-center">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold mb-2">
+            <i data-lucide="book-plus" class="w-3.5 h-3.5"></i> Loan Process
+          </div>
+          <h2 class="text-3xl font-black font-display text-white tracking-tight">Issue Book</h2>
+          <p class="text-slate-400 text-sm mt-1">Assign an available library book copy to an enrolled student.</p>
+        </div>
+
+        <form id="issue-form" class="glass-card p-7 sm:p-9 rounded-3xl space-y-5 border border-white/10 shadow-2xl">
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-2">Select Book Copy</label>
+            <select id="issue-book-select" required class="w-full glass-input rounded-xl px-4 py-3 text-xs text-white focus:outline-none">
+              <option value="">-- Choose Book --</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-2">Select Student</label>
+            <select id="issue-student-select" required class="w-full glass-input rounded-xl px-4 py-3 text-xs text-white focus:outline-none">
+              <option value="">-- Choose Student --</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-2">Due Return Date</label>
+            <input type="date" id="issue-due-date" required class="w-full glass-input rounded-xl px-4 py-3 text-xs text-white focus:outline-none font-mono-code">
+            <span class="text-[10px] text-slate-400 mt-1 block">Default set to standard 14 days duration.</span>
+          </div>
+
+          <button type="submit" id="issue-submit-btn" class="w-full btn-primary text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition mt-2">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>Confirm Book Issue</span>
+          </button>
+        </form>
+      </section>
+
+      <!-- ================= 6. RETURN BOOK TAB ================= -->
+      <section id="tab-return" class="tab-pane hidden space-y-6 max-w-7xl mx-auto">
+        <div class="border-b border-white/5 pb-6">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold mb-2">
+            <i data-lucide="book-check" class="w-3.5 h-3.5"></i> Check-In Center
+          </div>
+          <h2 class="text-3xl font-black font-display text-white tracking-tight">Return Book</h2>
+          <p class="text-slate-400 text-sm mt-0.5">Click "Return Copy" to check-in books and automatically replenish shelf availability.</p>
+        </div>
+
+        <div class="glass-card rounded-2xl overflow-hidden border border-white/5 shadow-xl">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-white/[0.02] text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-white/5">
+                <tr>
+                  <th class="p-4">Book Title</th>
+                  <th class="p-4">Student (Borrower)</th>
+                  <th class="p-4">Issue Date</th>
+                  <th class="p-4">Due Date</th>
+                  <th class="p-4">Loan Status</th>
+                  <th class="p-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="return-table-body" class="divide-y divide-white/5 text-slate-300">
+                <tr><td colspan="6" class="p-8 text-center text-slate-400">Loading active book loans...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 7. HISTORY TAB ================= -->
+      <section id="tab-history" class="tab-pane hidden space-y-6 max-w-7xl mx-auto">
+        <div class="border-b border-white/5 pb-6">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs font-semibold mb-2">
+            <i data-lucide="history" class="w-3.5 h-3.5"></i> Audit Trail
+          </div>
+          <h2 class="text-3xl font-black font-display text-white tracking-tight">Transaction Log</h2>
+          <p class="text-slate-400 text-sm mt-0.5">Immutable audit record of all past and active library transactions.</p>
+        </div>
+
+        <div class="glass-card rounded-2xl overflow-hidden border border-white/5 shadow-xl">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-white/[0.02] text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-white/5">
+                <tr>
+                  <th class="p-4">Book Title</th>
+                  <th class="p-4">Student</th>
+                  <th class="p-4">Issue Date</th>
+                  <th class="p-4">Due Date</th>
+                  <th class="p-4">Check-in Date</th>
+                  <th class="p-4">Status</th>
+                </tr>
+              </thead>
+              <tbody id="history-table-body" class="divide-y divide-white/5 text-slate-300">
+                <tr><td colspan="6" class="p-8 text-center text-slate-400">Loading transaction history...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL: ADD BOOK -->
+  <div id="modal-add-book" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-lg rounded-3xl p-7 sm:p-8 space-y-5 border border-white/10 shadow-2xl relative">
+      <div class="flex items-center justify-between pb-3 border-b border-white/5">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"><i data-lucide="book-plus" class="w-5 h-5"></i></div>
+          <h3 class="text-xl font-display font-black text-white">Add New Book</h3>
+        </div>
+        <button onclick="closeModal('modal-add-book')" class="p-1.5 hover:bg-white/5 text-slate-400 hover:text-white rounded-xl transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="add-book-form" class="space-y-4">
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">Book Title *</label>
+          <input type="text" id="new-book-title" required placeholder="e.g. Clean Code: Handbook of Agile Craft" class="w-full glass-input rounded-xl px-4 py-3 text-xs text-white focus:outline-none placeholder-slate-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">Author *</label>
+            <input type="text" id="new-book-author" required placeholder="e.g. Robert C. Martin" class="w-full glass-input rounded-xl px-4 py-3 text-xs text-white focus:outline-none placeholder-slate-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">Category *</label>
+            <input type="text" id="new-book-subject" required placeholder="e.g. Computer Science" class="w-full glass-input rounded-xl px-4 py-3 text-xs text-white focus:outline-none placeholder-slate-500">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">ISBN</label>
+            <input type="text" id="new-book-isbn" placeholder="978-0132350884" class="w-full glass-input rounded-xl px-4 py-3 text-xs text-white focus:outline-none font-mono-code placeholder-slate-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">Physical Copies *</label>
+            <input type="number" id="new-book-copies" required min="1" value="1" class="w-full glass-input rounded-xl px-4 py-3 text-xs text-white focus:outline-none">
+          </div>
+        </div>
+
+        <button type="submit" class="w-full btn-primary text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition mt-4">
+          Save Catalog & Generate QR Token
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD STUDENT -->
+  <div id="modal-add-student" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-lg rounded-3xl p-7 sm:p-8 space-y-5 border border-white/10 shadow-2xl relative">
+      <div class="flex items-center justify-between pb-3 border-b border-white/5">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20"><i data-lucide="user-plus" class="w-5 h-5"></i></div>
+          <h3 class="text-xl font-display font-black text-white">Register Student</h3>
+        </div>
+        <button onclick="closeModal('modal-add-student')" class="p-1.5 hover:bg-white/5 text-slate-400 hover:text-white rounded-xl transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="add-student-form" class="space-y-4">
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">Full Name *</label>
+          <input type="text" id="new-student-name" required placeholder="e.g. Aaron Alexander" class="w-full glass-input rounded-xl px-4 py-3 text-xs text-white focus:outline-none placeholder-slate-500">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">Admission Number *</label>
+          <input type="text" id="new-student-adm" required placeholder="e.g. ADM-2026-088" class="w-full glass-input rounded-xl px-4 py-3 text-xs text-white focus:outline-none font-mono-code placeholder-slate-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">Grade / Year *</label>
+            <input type="text" id="new-student-class" required placeholder="e.g. 10th Grade" class="w-full glass-input rounded-xl px-4 py-3 text-xs text-white focus:outline-none placeholder-slate-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">Section *</label>
+            <input type="text" id="new-student-sec" required value="A" class="w-full glass-input rounded-xl px-4 py-3 text-xs text-white focus:outline-none">
+          </div>
+        </div>
+
+        <button type="submit" class="w-full btn-primary text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition mt-4">
+          Save Student Profile
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: QR VIEW / PRINT -->
+  <div id="modal-qr-view" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-sm rounded-3xl p-7 text-center space-y-5 border border-white/10 shadow-2xl relative">
+      <button onclick="closeModal('modal-qr-view')" class="absolute top-5 right-5 p-1.5 hover:bg-white/5 text-slate-400 hover:text-white rounded-xl transition"><i data-lucide="x" class="w-4 h-4"></i></button>
+      
+      <div>
+        <div class="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-wider mb-1">Book QR Badge</div>
+        <h3 class="text-lg font-display font-black text-white" id="modal-qr-title">Book Title</h3>
+        <p class="text-[11px] text-slate-400 font-mono-code break-all mt-1" id="modal-qr-token"></p>
+      </div>
+
+      <div class="p-4 bg-white rounded-2xl w-fit mx-auto shadow-2xl ring-4 ring-indigo-500/20" id="modal-qr-container"></div>
+
+      <div class="flex gap-2.5 pt-1">
+        <button onclick="window.print()" class="flex-1 bg-white/[0.05] hover:bg-white/[0.1] text-white text-xs font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 border border-white/10">
+          <i data-lucide="printer" class="w-4 h-4"></i> Print Sticker
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGIC CONTROLLER SCRIPT -->
+  <script>
+    let currentUser = null;
+    let booksData = [];
+    let studentsData = [];
+    let issuesData = [];
+    let html5Scanner = null;
+
+    // Toast helper
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'bg-emerald-600/95 text-white border-emerald-500/30 shadow-emerald-600/20',
+        error: 'bg-rose-600/95 text-white border-rose-500/30 shadow-rose-600/20',
+        info: 'bg-indigo-600/95 text-white border-indigo-500/30 shadow-indigo-600/20'
+      };
+      toast.className = `${colors[type] || colors.info} border backdrop-blur-xl px-4 py-3 rounded-2xl shadow-xl text-xs font-bold flex items-center gap-2 pointer-events-auto transition-all transform translate-y-2`;
+      toast.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info'}" class="w-4 h-4 shrink-0"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      lucide.createIcons();
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // Navigation Switcher
+    function navigateTo(tabName) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+      const activeTab = document.getElementById(`tab-${tabName}`);
+      if (activeTab) activeTab.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        if (btn.dataset.nav === tabName) {
+          btn.classList.add('bg-indigo-600/15', 'text-indigo-400', 'border', 'border-indigo-500/30');
+          btn.classList.remove('text-slate-400');
+        } else {
+          btn.classList.remove('bg-indigo-600/15', 'text-indigo-400', 'border', 'border-indigo-500/30');
+          btn.classList.add('text-slate-400');
+        }
+      });
+
+      // Tab specific refresh
+      if (tabName === 'dashboard') refreshData();
+      if (tabName === 'books') renderBooksList();
+      if (tabName === 'students') renderStudentsList();
+      if (tabName === 'return') renderReturnList();
+      if (tabName === 'history') renderHistoryList();
+      if (tabName === 'issue') populateIssueDropdowns();
+
+      if (tabName !== 'scan' && html5Scanner) {
+        stopScanner();
+      }
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+      lucide.createIcons();
+    }
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    // Refresh Data from Firebase Firestore
+    async function refreshData() {
+      if (!window.FirebaseServices) return;
+      const { db, getDocs, collection } = window.FirebaseServices;
+
+      try {
+        const [booksSnap, studentsSnap, issuesSnap] = await Promise.all([
+          getDocs(collection(db, 'books')),
+          getDocs(collection(db, 'students')),
+          getDocs(collection(db, 'issue_records'))
+        ]);
+
+        booksData = booksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        studentsData = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        issuesData = issuesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        // Update dashboard counts
+        const totalTitles = booksData.filter(b => !b.is_archived).length;
+        const totalCopies = booksData.filter(b => !b.is_archived).reduce((acc, b) => acc + (Number(b.total_copies) || 0), 0);
+        const issuedCopies = issuesData.filter(i => !i.return_date).length;
+
+        document.getElementById('stat-total-titles').innerText = totalTitles;
+        document.getElementById('stat-total-copies').innerText = totalCopies;
+        document.getElementById('stat-issued-copies').innerText = issuedCopies;
+        document.getElementById('stat-total-students').innerText = studentsData.length;
+
+        renderRecentIssues();
+      } catch (err) {
+        console.error('Refresh error:', err);
+      }
+    }
+
+    // Render Recent Issues
+    function renderRecentIssues() {
+      const tbody = document.getElementById('recent-issues-tbody');
+      const active = issuesData.filter(i => !i.return_date).slice(-5).reverse();
+
+      if (active.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-slate-500 font-medium">No active book loans registered yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = active.map(record => {
+        const book = booksData.find(b => b.id === record.book_id) || { title: 'Unknown' };
+        const student = studentsData.find(s => s.id === record.student_id) || { full_name: 'Unknown' };
+        return `
+          <tr class="hover:bg-white/[0.02] transition">
+            <td class="py-3 px-2 font-bold text-white">${book.title}</td>
+            <td class="py-3 px-2 text-slate-300 font-medium">${student.full_name}</td>
+            <td class="py-3 px-2 text-slate-400 font-mono-code">${record.issue_date || 'N/A'}</td>
+            <td class="py-3 px-2 text-amber-400 font-mono-code">${record.due_date || 'N/A'}</td>
+            <td class="py-3 px-2 text-right">
+              <button onclick="handleReturn('${record.id}')" class="px-3 py-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg text-xs font-bold transition">
+                Return
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Render Books Catalog
+    function renderBooksList() {
+      const tbody = document.getElementById('books-table-body');
+      const query = (document.getElementById('books-search-input')?.value || '').toLowerCase();
+
+      const activeIssuesCountMap = {};
+      issuesData.filter(i => !i.return_date).forEach(i => {
+        activeIssuesCountMap[i.book_id] = (activeIssuesCountMap[i.book_id] || 0) + 1;
+      });
+
+      const filtered = booksData.filter(b => {
+        if (b.is_archived) return false;
+        return (b.title || '').toLowerCase().includes(query) ||
+               (b.author || '').toLowerCase().includes(query) ||
+               (b.subject || '').toLowerCase().includes(query) ||
+               (b.isbn || '').toLowerCase().includes(query);
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500 font-medium">No catalog books match your criteria.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(b => {
+        const issued = activeIssuesCountMap[b.id] || 0;
+        const available = Math.max(0, (Number(b.total_copies) || 0) - issued);
+        return `
+          <tr class="hover:bg-white/[0.02] transition">
+            <td class="p-4">
+              <p class="font-bold text-white text-sm">${b.title}</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">${b.author} ${b.isbn ? `• <span class="font-mono-code">ISBN: ${b.isbn}</span>` : ''}</p>
+            </td>
+            <td class="p-4">
+              <span class="px-2.5 py-1 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 rounded-lg text-xs font-semibold">${b.subject || 'General'}</span>
+            </td>
+            <td class="p-4 text-center font-bold text-white">${b.total_copies}</td>
+            <td class="p-4 text-center">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${available > 0 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+                <span class="w-1.5 h-1.5 rounded-full ${available > 0 ? 'bg-emerald-400' : 'bg-rose-400'}"></span>
+                ${available}
+              </span>
+            </td>
+            <td class="p-4 text-center">
+              <button onclick="viewQrCode('${b.title.replace(/'/g, "\\'")}', '${b.qr_token}')" class="p-2 bg-white/[0.04] hover:bg-white/[0.08] text-sky-400 rounded-xl transition border border-white/5" title="Generate & Print QR Badge">
+                <i data-lucide="qr-code" class="w-4 h-4"></i>
+              </button>
+            </td>
+            <td class="p-4 text-right">
+              <button onclick="prefillIssueBook('${b.id}')" ${available === 0 ? 'disabled' : ''} class="px-3.5 py-1.5 ${available > 0 ? 'bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 border border-indigo-500/30' : 'bg-white/5 text-slate-600 cursor-not-allowed'} rounded-xl text-xs font-bold transition">
+                Issue
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    // Render Students List
+    function renderStudentsList() {
+      const tbody = document.getElementById('students-table-body');
+      const query = (document.getElementById('students-search-input')?.value || '').toLowerCase();
+
+      const activeIssuesByStudent = {};
+      issuesData.filter(i => !i.return_date).forEach(i => {
+        activeIssuesByStudent[i.student_id] = (activeIssuesByStudent[i.student_id] || 0) + 1;
+      });
+
+      const filtered = studentsData.filter(s => 
+        (s.full_name || '').toLowerCase().includes(query) ||
+        (s.admission_number || '').toLowerCase().includes(query)
+      );
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500 font-medium">No student profiles registered yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(s => {
+        const borrows = activeIssuesByStudent[s.id] || 0;
+        return `
+          <tr class="hover:bg-white/[0.02] transition">
+            <td class="p-4">
+              <p class="font-bold text-white text-sm">${s.full_name}</p>
+            </td>
+            <td class="p-4 font-mono-code text-xs text-sky-400">${s.admission_number}</td>
+            <td class="p-4 text-slate-300 font-medium">${s.class_name} <span class="text-slate-500">• Sec ${s.section}</span></td>
+            <td class="p-4 text-center font-bold">
+              <span class="px-2.5 py-0.5 rounded-full text-xs ${borrows > 0 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-white/5 text-slate-500'}">
+                ${borrows}
+              </span>
+            </td>
+            <td class="p-4 text-right">
+              <button onclick="prefillIssueStudent('${s.id}')" class="px-3.5 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 border border-indigo-500/30 rounded-xl text-xs font-bold transition">
+                Assign Book
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    // Render Returns List
+    function renderReturnList() {
+      const tbody = document.getElementById('return-table-body');
+      const active = issuesData.filter(i => !i.return_date);
+
+      if (active.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500 font-medium">All library books are currently returned and accounted for.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = active.map(i => {
+        const book = booksData.find(b => b.id === i.book_id) || { title: 'Unknown' };
+        const student = studentsData.find(s => s.id === i.student_id) || { full_name: 'Unknown', admission_number: '' };
+        return `
+          <tr class="hover:bg-white/[0.02] transition">
+            <td class="p-4 font-bold text-white text-sm">${book.title}</td>
+            <td class="p-4 font-medium text-slate-300">${student.full_name} <span class="text-[11px] text-sky-400 font-mono-code">(${student.admission_number})</span></td>
+            <td class="p-4 text-slate-400 font-mono-code">${i.issue_date}</td>
+            <td class="p-4 font-mono-code text-amber-400">${i.due_date}</td>
+            <td class="p-4"><span class="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg text-xs font-bold">On Loan</span></td>
+            <td class="p-4 text-right">
+              <button onclick="handleReturn('${i.id}')" class="btn-emerald text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition">
+                Return Copy
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Render History List
+    function renderHistoryList() {
+      const tbody = document.getElementById('history-table-body');
+      if (issuesData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500 font-medium">No transaction records logged yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = issuesData.slice().reverse().map(i => {
+        const book = booksData.find(b => b.id === i.book_id) || { title: 'Unknown' };
+        const student = studentsData.find(s => s.id === i.student_id) || { full_name: 'Unknown' };
+        const isReturned = !!i.return_date;
+        return `
+          <tr class="hover:bg-white/[0.02] transition">
+            <td class="p-4 font-bold text-white text-sm">${book.title}</td>
+            <td class="p-4 font-medium text-slate-300">${student.full_name}</td>
+            <td class="p-4 text-slate-400 font-mono-code">${i.issue_date}</td>
+            <td class="p-4 text-slate-400 font-mono-code">${i.due_date}</td>
+            <td class="p-4 font-mono-code ${isReturned ? 'text-emerald-400' : 'text-slate-600'}">${i.return_date || '—'}</td>
+            <td class="p-4">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${isReturned ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
+                ${isReturned ? 'Returned' : 'Active'}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Issue Book Dropdowns
+    function populateIssueDropdowns() {
+      const bookSelect = document.getElementById('issue-book-select');
+      const studentSelect = document.getElementById('issue-student-select');
+
+      const activeIssuesCountMap = {};
+      issuesData.filter(i => !i.return_date).forEach(i => {
+        activeIssuesCountMap[i.book_id] = (activeIssuesCountMap[i.book_id] || 0) + 1;
+      });
+
+      bookSelect.innerHTML = '<option value="">-- Choose Book --</option>' + 
+        booksData.filter(b => !b.is_archived).map(b => {
+          const issued = activeIssuesCountMap[b.id] || 0;
+          const available = Math.max(0, (Number(b.total_copies) || 0) - issued);
+          return `<option value="${b.id}" ${available === 0 ? 'disabled' : ''}>${b.title} (${available} copies available)</option>`;
+        }).join('');
+
+      studentSelect.innerHTML = '<option value="">-- Choose Student --</option>' + 
+        studentsData.map(s => `<option value="${s.id}">${s.full_name} (${s.admission_number} - Class ${s.class_name})</option>`).join('');
+
+      // Default due date to 14 days ahead
+      const due = new Date();
+      due.setDate(due.getDate() + 14);
+      document.getElementById('issue-due-date').value = due.toISOString().split('T')[0];
+    }
+
+    function prefillIssueBook(bookId) {
+      navigateTo('issue');
+      setTimeout(() => {
+        document.getElementById('issue-book-select').value = bookId;
+      }, 100);
+    }
+    function prefillIssueStudent(studentId) {
+      navigateTo('issue');
+      setTimeout(() => {
+        document.getElementById('issue-student-select').value = studentId;
+      }, 100);
+    }
+
+    // View QR Code Modal
+    function viewQrCode(title, token) {
+      document.getElementById('modal-qr-title').innerText = title;
+      document.getElementById('modal-qr-token').innerText = `${token}`;
+      const container = document.getElementById('modal-qr-container');
+      container.innerHTML = '';
+      new QRCode(container, {
+        text: token,
+        width: 190,
+        height: 190,
+        colorDark: "#080c14",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+      openModal('modal-qr-view');
+    }
+
+    // QR Camera Scanner
+    function startScanner() {
+      const readerDiv = document.getElementById('qr-reader');
+      readerDiv.innerHTML = '<div class="absolute inset-x-0 h-0.5 scanner-laser z-20"></div>';
+      document.getElementById('btn-start-scanner').classList.add('hidden');
+      document.getElementById('btn-stop-scanner').classList.remove('hidden');
+
+      html5Scanner = new Html5Qrcode("qr-reader");
+      html5Scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 240 },
+        (decodedText) => {
+          lookupToken(decodedText);
+          stopScanner();
+        },
+        () => {}
+      ).catch(err => {
+        showToast('Camera error: ' + err, 'error');
+        stopScanner();
+      });
+    }
+
+    function stopScanner() {
+      if (html5Scanner) {
+        html5Scanner.stop().then(() => {
+          html5Scanner.clear();
+          html5Scanner = null;
+        }).catch(() => {});
+      }
+      document.getElementById('qr-reader').innerHTML = `
+        <div class="flex flex-col items-center justify-center p-8 gap-3 text-slate-400">
+          <div class="p-4 rounded-2xl bg-white/5 border border-white/10 text-slate-400">
+            <i data-lucide="camera" class="w-8 h-8"></i>
+          </div>
+          <span>Camera scanner stopped. Click "Start Camera" to scan.</span>
+        </div>
+      `;
+      document.getElementById('btn-start-scanner').classList.remove('hidden');
+      document.getElementById('btn-stop-scanner').classList.add('hidden');
+      lucide.createIcons();
+    }
+
+    // Lookup token
+    async function lookupToken(token) {
+      token = token.trim();
+      if (!token) return;
+
+      const book = booksData.find(b => b.qr_token === token);
+      const container = document.getElementById('scanned-book-result');
+      container.classList.remove('hidden');
+
+      if (!book) {
+        container.innerHTML = `
+          <div class="text-rose-400 flex items-center gap-2">
+            <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+            <span class="font-bold text-sm">Unrecognized QR Token</span>
+          </div>
+          <p class="font-mono-code text-xs text-slate-400 break-all">${token}</p>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      const activeIssues = issuesData.filter(i => i.book_id === book.id && !i.return_date);
+      const available = Math.max(0, (Number(book.total_copies) || 0) - activeIssues.length);
+
+      container.innerHTML = `
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-wider">QR Code Verified</div>
+            <h4 class="text-xl font-display font-black text-white mt-1.5">${book.title}</h4>
+            <p class="text-xs text-slate-400 mt-0.5">${book.author} • Category: ${book.subject}</p>
+          </div>
+          <span class="px-3 py-1 rounded-xl text-xs font-bold ${available > 0 ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'}">
+            ${available} Available
+          </span>
+        </div>
+
+        <div class="pt-3 flex gap-2.5">
+          <button onclick="prefillIssueBook('${book.id}')" ${available === 0 ? 'disabled' : ''} class="flex-1 btn-primary text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition">
+            Issue Book
+          </button>
+          <button onclick="navigateTo('return')" class="flex-1 bg-white/[0.05] hover:bg-white/[0.1] text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition border border-white/10">
+            Check-In / Return
+          </button>
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    // Book Return Action
+    async function handleReturn(recordId) {
+      if (!confirm('Confirm check-in / return of this book copy?')) return;
+      const { db, doc, updateDoc } = window.FirebaseServices;
+
+      try {
+        const recordRef = doc(db, 'issue_records', recordId);
+        await updateDoc(recordRef, {
+          return_date: new Date().toISOString().split('T')[0]
+        });
+
+        showToast('Book returned and copy replenished!', 'success');
+        await refreshData();
+        renderReturnList();
+      } catch (err) {
+        showToast('Failed to return book: ' + err.message, 'error');
+      }
+    }
+
+    // EVENT LISTENERS & LIFECYCLE
+    window.addEventListener('firebase-ready', () => {
+      const { auth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } = window.FirebaseServices;
+
+      onAuthStateChanged(auth, (user) => {
+        currentUser = user;
+        if (user) {
+          document.getElementById('auth-screen').classList.add('hidden');
+          document.getElementById('main-app').classList.remove('hidden');
+          document.getElementById('user-email-display').innerText = user.email;
+          document.getElementById('user-avatar').innerText = (user.email || 'L')[0].toUpperCase();
+          refreshData();
+          navigateTo('dashboard');
+        } else {
+          document.getElementById('auth-screen').classList.remove('hidden');
+          document.getElementById('main-app').classList.add('hidden');
+        }
+      });
+
+      // Login form submit
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value.trim();
+        const pass = document.getElementById('login-password').value;
+        const btn = document.getElementById('login-submit-btn');
+
+        btn.disabled = true;
+        btn.innerText = 'Connecting...';
+
+        try {
+          try {
+            await signInWithEmailAndPassword(auth, email, pass);
+          } catch (err) {
+            if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+              await createUserWithEmailAndPassword(auth, email, pass);
+              showToast('Librarian account created!', 'success');
+            } else {
+              throw err;
+            }
+          }
+        } catch (authErr) {
+          showToast(authErr.message || 'Authentication error', 'error');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<span>Sign In / Quick Access</span><i data-lucide="arrow-right" class="w-4 h-4"></i>';
+          lucide.createIcons();
+        }
+      });
+
+      // Logout
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        signOut(auth);
+        showToast('Logged out successfully', 'info');
+      });
+
+      // Add Book Form
+      document.getElementById('add-book-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { db, collection, addDoc } = window.FirebaseServices;
+
+        const qrToken = crypto.randomUUID();
+        const title = document.getElementById('new-book-title').value.trim();
+        const author = document.getElementById('new-book-author').value.trim();
+        const subject = document.getElementById('new-book-subject').value.trim();
+        const isbn = document.getElementById('new-book-isbn').value.trim();
+        const copies = Number(document.getElementById('new-book-copies').value) || 1;
+
+        try {
+          await addDoc(collection(db, 'books'), {
+            title,
+            author,
+            subject,
+            isbn,
+            total_copies: copies,
+            qr_token: qrToken,
+            is_archived: false,
+            created_at: new Date().toISOString()
+          });
+
+          showToast('Book registered with QR Token!', 'success');
+          closeModal('modal-add-book');
+          document.getElementById('add-book-form').reset();
+          await refreshData();
+          renderBooksList();
+          viewQrCode(title, qrToken);
+        } catch (err) {
+          showToast('Error saving book: ' + err.message, 'error');
+        }
+      });
+
+      // Add Student Form
+      document.getElementById('add-student-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { db, collection, addDoc } = window.FirebaseServices;
+
+        const full_name = document.getElementById('new-student-name').value.trim();
+        const admission_number = document.getElementById('new-student-adm').value.trim();
+        const class_name = document.getElementById('new-student-class').value.trim();
+        const section = document.getElementById('new-student-sec').value.trim();
+
+        try {
+          await addDoc(collection(db, 'students'), {
+            full_name,
+            admission_number,
+            class_name,
+            section,
+            created_at: new Date().toISOString()
+          });
+
+          showToast('Student enrolled successfully!', 'success');
+          closeModal('modal-add-student');
+          document.getElementById('add-student-form').reset();
+          await refreshData();
+          renderStudentsList();
+        } catch (err) {
+          showToast('Error enrolling student: ' + err.message, 'error');
+        }
+      });
+
+      // Issue Book Form
+      document.getElementById('issue-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { db, collection, addDoc } = window.FirebaseServices;
+
+        const bookId = document.getElementById('issue-book-select').value;
+        const studentId = document.getElementById('issue-student-select').value;
+        const dueDate = document.getElementById('issue-due-date').value;
+
+        if (!bookId || !studentId) {
+          showToast('Please select both a book and a student', 'error');
+          return;
+        }
+
+        try {
+          await addDoc(collection(db, 'issue_records'), {
+            book_id: bookId,
+            student_id: studentId,
+            issue_date: new Date().toISOString().split('T')[0],
+            due_date: dueDate,
+            return_date: null,
+            created_at: new Date().toISOString()
+          });
+
+          showToast('Book issued to student successfully!', 'success');
+          await refreshData();
+          navigateTo('dashboard');
+        } catch (err) {
+          showToast('Issue failed: ' + err.message, 'error');
+        }
+      });
+
+      // Manual QR Lookup
+      document.getElementById('manual-qr-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const token = document.getElementById('manual-qr-input').value;
+        lookupToken(token);
+      });
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,671 @@
+# PROJECT: QR LIBRARY SYSTEM
+## Build a Complete, Functional Library Management Web Application
+
+Act as a senior full-stack developer, UI/UX designer, database architect, and security engineer.
+
+Build a complete, working MVP of a modern QR-based Library Management System designed for a school library.
+
+Do not just create a frontend design or static prototype. Build a functional application with a real database, authentication, QR generation, QR scanning, book registration, student management, book issuing, book returns, and inventory tracking.
+
+The application should be easy for a school librarian to use, even without technical knowledge.
+
+IMPORTANT: Build the application directly. Do not just give me instructions or a development plan.
+
+---
+
+# 1. PROJECT OBJECTIVE
+
+The goal is to digitize school library operations and reduce manual register work.
+
+The librarian should be able to:
+
+- Register books.
+- Register multiple physical copies of the same book.
+- Generate ONE shared QR code for each book title/edition.
+- Attach the same QR code to all physical copies of that book.
+- Scan the QR code to identify the book.
+- Issue a book to a student.
+- Return a book.
+- Track available and issued copies.
+- View borrowing history.
+- Search for books and students.
+- View library statistics.
+
+This application is initially designed for one school library and one librarian account.
+
+# 2. IMPORTANT BUSINESS LOGIC: SHARED QR CODE
+
+This is the most important feature of the application.
+
+DO NOT generate separate QR codes for individual physical copies.
+
+Each registered book title/edition must have:
+
+- One book database record.
+- One unique book ID.
+- One unique QR token.
+- One QR code shared by every physical copy.
+- One total copy count.
+
+Example:
+
+Book: Physics, Class XI
+Author: NCERT
+Total Copies: 10
+QR Codes Generated: 1
+
+All 10 physical copies must use the same QR code.
+
+The application must display:
+
+Total Copies: 10
+Available Copies: 7
+Issued Copies: 3
+
+Calculation:
+
+Available Copies = Total Copies - Active Issued Records
+
+Issued Copies = Number of active borrowing records for that book.
+
+Never store the available copies as an independently editable number. Calculate availability from the database to prevent incorrect inventory counts.
+
+When a librarian increases the total number of copies from 10 to 15, the existing QR code must remain unchanged.
+
+When a librarian scans the shared QR code, the application must identify the book title and show its current inventory information.
+
+IMPORTANT LIMITATION:
+The shared QR code identifies a book title, not an individual physical copy. Therefore, when returning a book, the librarian must select the correct active borrowing record. Do not pretend that the system can identify which physical copy was returned.
+
+# 3. TECHNOLOGY STACK
+
+Use the following stack:
+
+Frontend:
+- Next.js with App Router.
+- TypeScript.
+- Tailwind CSS.
+- React components.
+- Lucide icons.
+
+Backend and Database:
+- Firebase Authentication.
+- Cloud Firestore.
+- Firestore Security Rules.
+
+QR Functionality:
+- QR code generation using a suitable React QR library.
+- Browser-based QR scanning using a suitable scanning library.
+- Manual QR token entry as a fallback.
+
+Forms and Validation:
+- React Hook Form.
+- Zod validation.
+
+Use stable, compatible package versions.
+
+Keep the application modular, organized, scalable, and beginner-friendly.
+
+# 4. DESIGN AND USER EXPERIENCE
+
+Create a polished, modern, professional school-library dashboard.
+
+Design direction:
+
+- Light theme.
+- White and soft grey backgrounds.
+- Dark navy sidebar.
+- Primary blue accents.
+- Green for available books.
+- Orange for issued books.
+- Rounded cards.
+- Clean typography.
+- Subtle shadows.
+- Responsive layout.
+- Consistent spacing.
+- Clear icons.
+- Simple navigation.
+
+The design should look like a real SaaS dashboard, not a basic college project.
+
+Make it responsive for:
+- Desktop.
+- Laptop.
+- Tablet.
+- Mobile.
+
+Sidebar navigation:
+
+1. Dashboard
+2. Books
+3. Scan QR
+4. Issue Book
+5. Return Book
+6. Students
+7. Issue History
+8. Settings
+9. Logout
+
+# 5. AUTHENTICATION
+
+Build a secure librarian login system.
+
+Requirements:
+
+- Email and password login.
+- Logout.
+- Protected dashboard routes.
+- Persistent authenticated sessions.
+- Login form validation.
+- Proper error messages.
+
+Do not build public student registration or student login.
+
+For the MVP, create librarian accounts through Firebase Authentication or an authorized administrator process. Do not build student accounts.
+
+Use Firestore Security Rules so unauthenticated or unauthorized users cannot access library records.
+
+Never put Firebase Admin SDK credentials in frontend code.
+
+# 6. DASHBOARD
+
+Create a complete dashboard displaying:
+
+Statistics cards:
+
+- Total Book Titles.
+- Total Physical Copies.
+- Available Copies.
+- Currently Issued Copies.
+- Total Registered Students.
+
+Example inventory:
+
+Total Book Titles: 245
+Total Physical Copies: 300
+Available Copies: 273
+Issued Copies: 27
+Registered Students: 150
+
+All statistics must come from the database, not hardcoded frontend values.
+
+Dashboard sections:
+
+- Recent book issues.
+- Recent returns.
+- Popular books.
+- Books with low availability.
+- Quick Scan QR button.
+- Quick Issue Book button.
+- Quick Return Book button.
+
+Use loading states, empty states, and error states.
+
+# 7. BOOK MANAGEMENT
+
+Create a complete Books Management section.
+
+Book registration form:
+
+- Book Title.
+- Author.
+- Subject/Category.
+- Class or Grade (optional).
+- Publisher (optional).
+- ISBN (optional).
+- Total Number of Physical Copies.
+
+When a librarian registers a book:
+
+1. Validate the submitted information.
+2. Create one book record.
+3. Generate a unique QR token.
+4. Generate one QR code for that book.
+5. Save the record in Cloud Firestore.
+6. Display the generated QR code.
+7. Allow the librarian to download or print it.
+
+Book management features:
+
+- Add new book.
+- View book details.
+- Edit book details.
+- Update total copies.
+- Search books.
+- Filter by subject/category.
+- Archive a book.
+
+Do not allow the total copy count to be reduced below the number of currently issued copies.
+
+Do not delete or archive a book with active borrowing records without an appropriate warning and safe handling.
+
+# 8. QR CODE MANAGEMENT
+
+Create a QR code containing a stable URL or identifier that resolves to the registered book.
+
+Example:
+
+/scan/UNIQUE_BOOK_TOKEN
+
+Requirements:
+
+- One QR token per book record.
+- The QR token must remain unchanged when book details or copy counts are edited.
+- All physical copies of the same book use the same QR code.
+- QR code should not contain student personal information.
+- QR code should be downloadable as PNG.
+- QR label should include book title and a clear instruction: "Same QR for all copies".
+- Support printing QR labels.
+
+After scanning:
+
+1. Validate the QR token.
+2. Find the corresponding book.
+3. Display book information.
+4. Display total, available, and issued copies.
+5. Display Issue Book and Return Book actions.
+6. Display active borrowing records.
+
+If the QR is invalid, display a clear error message.
+
+Provide manual token entry if camera scanning is unavailable.
+
+# 9. ISSUE BOOK FUNCTIONALITY
+
+Create a functional Issue Book workflow.
+
+Process:
+
+1. Scan the book QR code or search for a book.
+2. Open the book detail screen.
+3. Display its availability.
+4. Search for a registered student.
+5. Select the student.
+6. Enter the due date.
+7. Confirm the transaction.
+8. Save the borrowing record.
+9. Update the dashboard statistics.
+
+Example:
+
+Physics, Class XI
+
+Total Copies: 10
+Available Copies: 7
+Issued Copies: 3
+
+A librarian issues one copy to Ravi Kumar.
+
+New inventory:
+
+Total Copies: 10
+Available Copies: 6
+Issued Copies: 4
+
+Business rules:
+
+- A book cannot be issued when no copies are available.
+- Do not allow negative availability.
+- Every successful issue must create an issue record.
+- Record issue date and due date.
+- Record which student borrowed the book.
+- Prevent accidental duplicate submissions.
+- Ensure that simultaneous issue requests cannot exceed available stock.
+
+Use a Firestore transaction or trusted server-side operation for inventory-changing operations. Ensure concurrent issue requests cannot exceed available stock.
+
+# 10. RETURN BOOK FUNCTIONALITY
+
+Create a functional Return Book section.
+
+Because all copies share the same QR code, scanning identifies the book title.
+
+After scanning:
+
+1. Find the book.
+2. Display its active borrowing records.
+3. Show student names.
+4. Show issue dates.
+5. Show due dates.
+6. Allow the librarian to select the correct borrowing record.
+7. Ask for confirmation.
+8. Update the selected record with its return date.
+
+Example:
+
+Physics, Class XI
+
+Active Borrowing Records:
+
+Ravi Kumar | Issued: 20 Oct | Due: 27 Oct
+Aman Singh | Issued: 21 Oct | Due: 28 Oct
+Neha Sharma | Issued: 22 Oct | Due: 29 Oct
+
+The librarian selects Ravi Kumar and confirms the return.
+
+New inventory:
+
+Total Copies: 10
+Available Copies: 8
+Issued Copies: 2
+
+Business rules:
+
+- Only active borrowing records can be returned.
+- Prevent returning the same record twice.
+- Store the actual return date.
+- Calculate availability from active borrowing records.
+- Keep historical issue records permanently unless an authorized retention policy is introduced.
+
+# 11. STUDENT MANAGEMENT
+
+Build a Students Management section.
+
+Student registration fields:
+
+- Student Name.
+- Admission Number.
+- Class.
+- Section.
+
+Features:
+
+- Add student.
+- Edit student.
+- Search students.
+- View student borrowing history.
+- View currently borrowed books.
+- View overdue books.
+
+Admission Number must be unique.
+
+Collect only the student information necessary for library operations.
+
+# 12. ISSUE HISTORY
+
+Create a complete issue history section.
+
+Display:
+
+- Book Title.
+- Student Name.
+- Admission Number.
+- Issue Date.
+- Due Date.
+- Return Date.
+- Current Status.
+
+Statuses:
+
+- Active.
+- Returned.
+- Overdue.
+
+Overdue status should be derived from the due date when the record is still active.
+
+Add filters:
+
+- Active issues.
+- Returned books.
+- Overdue books.
+- Book title.
+- Student name.
+- Date range.
+
+# 13. FIRESTORE DATA DESIGN
+
+Use Cloud Firestore collections and documents rather than SQL tables or migrations.
+
+Use these collections:
+
+COLLECTION: books
+
+- Document ID: book ID
+- title, author, subject, class_grade, publisher, isbn
+- total_copies (positive integer)
+- qr_token (unique token)
+- is_archived
+- created_at, updated_at
+
+COLLECTION: students
+
+- Document ID: student ID
+- admission_number (unique)
+- full_name, class_name, section
+- created_at, updated_at
+
+COLLECTION: issue_records
+
+- Document ID: issue record ID
+- book_id (book document ID)
+- student_id (student document ID)
+- issue_date, due_date
+- return_date (null while active)
+- created_at
+
+Do not store a separate available_copies field. Calculate it as total_copies minus active issue records.
+
+Use Firestore Security Rules to restrict reads and writes to authorized librarians. Validate inventory-changing operations so concurrent issue requests cannot exceed available stock.
+
+Do not store a separate available_copies field.
+
+Do not create a separate physical-copies table in this MVP.
+
+# 14. SECURITY REQUIREMENTS
+
+Implement:
+
+- Protected routes.
+- Firebase Authentication.
+- Firestore Security Rules.
+- Server-side validation where required.
+- Client-side form validation.
+- Environment variables.
+- Secure database queries.
+- Safe error handling.
+- Input sanitization.
+- No hardcoded passwords.
+- No exposed Firebase Admin SDK credentials.
+- No student personal information in QR codes.
+
+Do not rely only on frontend checks to enforce business rules.
+
+# 15. SEED / DEMO DATA
+
+Create optional demo seed data for testing.
+
+Book:
+
+Physics, Class XI
+Author: NCERT
+Total Copies: 10
+
+Students:
+
+Ravi Kumar
+Aman Singh
+Neha Sharma
+
+Create three active borrowing records for these students.
+
+Expected inventory:
+
+Total Copies: 10
+Available Copies: 7
+Issued Copies: 3
+
+Mark all demo records clearly as sample data. Do not use real student information.
+
+# 16. APPLICATION STRUCTURE
+
+Organize the code into clear folders.
+
+Suggested structure:
+
+src/
+  app/
+    login/
+    dashboard/
+    books/
+    students/
+    scan/
+    issue/
+    return/
+    history/
+    settings/
+
+  components/
+    layout/
+    dashboard/
+    books/
+    students/
+    qr/
+    issues/
+    ui/
+
+  lib/
+    firebase/
+    validations/
+    utils/
+
+  hooks/
+  types/
+
+public/
+
+.env.example
+
+README.md
+
+You may improve the structure if required, but maintain clean separation between UI, database operations, validation, and business logic.
+
+# 17. TESTING
+
+Test the following scenarios:
+
+TEST 1:
+Register Physics, Class XI with 10 copies.
+Expected: One book record and one QR code.
+
+TEST 2:
+Print the QR code and attach the same QR to all ten copies.
+Expected: Every scan identifies the same book title.
+
+TEST 3:
+Issue three copies to three students.
+Expected: 10 total, 7 available, 3 issued.
+
+TEST 4:
+Issue one more copy.
+Expected: 10 total, 6 available, 4 issued.
+
+TEST 5:
+Try issuing when no copies are available.
+Expected: Transaction rejected with a clear message.
+
+TEST 6:
+Return one active borrowing record.
+Expected: Availability increases by one.
+
+TEST 7:
+Try returning the same record again.
+Expected: Transaction rejected.
+
+TEST 8:
+Try reducing total copies below active issues.
+Expected: Validation error.
+
+TEST 9:
+Scan an invalid QR code.
+Expected: Clear error screen.
+
+TEST 10:
+Open dashboard without authentication.
+Expected: Redirect to login.
+
+TEST 11:
+Refresh the dashboard after issuing a book.
+Expected: Updated inventory is loaded from the database.
+
+TEST 12:
+Try issuing two copies simultaneously when only one is available.
+Expected: Only one transaction succeeds.
+
+# 18. OUT OF SCOPE FOR THIS MVP
+
+Do not build these features yet:
+
+- Student login.
+- Student mobile application.
+- Multiple school branches.
+- Online payment.
+- Fine payment system.
+- SMS notifications.
+- WhatsApp notifications.
+- AI book recommendations.
+- AI chatbot.
+- Advanced analytics.
+- Barcode support.
+- Individual physical copy tracking.
+- Complex librarian roles.
+
+Focus on making the core library workflow reliable.
+
+# 19. DEVELOPMENT INSTRUCTIONS FOR THE AI EDITOR
+
+Follow these rules strictly:
+
+1. First inspect the existing project files and understand the current codebase.
+2. If there is no existing application, initialize the project.
+3. Configure the Firestore collections and Security Rules.
+4. Implement authentication and protected routes.
+5. Build the dashboard.
+6. Build book management.
+7. Implement shared QR generation and scanning.
+8. Build student management.
+9. Implement issuing and returning transactions.
+10. Build issue history.
+11. Implement Firestore Security Rules and security checks.
+12. Add demo data.
+13. Run the application and fix errors.
+14. Test all important workflows.
+15. Write a detailed README with setup and deployment instructions.
+
+Do not leave buttons non-functional.
+
+Do not use fake statistics when the database is connected.
+
+Do not use hardcoded sample data as the production data source.
+
+Do not leave important functionality as TODO comments.
+
+If a required Firebase environment variable or Firebase configuration is unavailable, document the exact setup steps and clearly identify what must be configured.
+
+Do not claim that a feature works until it has been implemented and tested.
+
+# 20. FINAL DELIVERABLE
+
+Deliver a complete working MVP containing:
+
+- Modern responsive UI.
+- Librarian authentication.
+- Dashboard.
+- Book management.
+- Shared QR code generation.
+- QR scanning.
+- Student management.
+- Issue functionality.
+- Return functionality.
+- Inventory calculations.
+- Issue history.
+- Firestore collection design and Security Rules.
+- Demo seed data.
+- README.
+- Environment variable example.
+- Deployment instructions.
+
+FINAL PRIORITY:
+
+A simple application that correctly registers books, generates one shared QR code for all copies, issues books, accepts returns, and calculates availability is more valuable than a complex application full of unfinished features.
+
+Build the complete MVP with working functionality. Start implementing now.
