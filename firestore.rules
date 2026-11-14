@@ -1,0 +1,26 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isLibrarian() {
+      return request.auth != null
+        && request.auth.uid == 'REPLACE_WITH_LIBRARIAN_UID';
+    }
+
+    match /books/{bookId} {
+      allow read, write: if isLibrarian();
+    }
+
+    match /students/{studentId} {
+      allow read, write: if isLibrarian();
+    }
+
+    match /issue_records/{issueRecordId} {
+      allow read, write: if isLibrarian();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

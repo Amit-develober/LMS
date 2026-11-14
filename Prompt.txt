@@ -89,9 +89,10 @@ Frontend:
 - Lucide icons.
 
 Backend and Database:
-- Firebase Authentication.
-- Cloud Firestore.
-- Firestore Security Rules.
+- Supabase.
+- PostgreSQL database.
+- Supabase Authentication.
+- Supabase Row Level Security (RLS).
 
 QR Functionality:
 - QR code generation using a suitable React QR library.
@@ -161,11 +162,11 @@ Requirements:
 
 Do not build public student registration or student login.
 
-For the MVP, create librarian accounts through Firebase Authentication or an authorized administrator process. Do not build student accounts.
+For the MVP, create librarian accounts through the Supabase dashboard or an authorized administrator process. Disable public sign-up.
 
-Use Firestore Security Rules so unauthenticated or unauthorized users cannot access library records.
+Use Supabase RLS so unauthenticated users cannot access library records.
 
-Never put Firebase Admin SDK credentials in frontend code.
+Never expose Supabase service-role credentials in frontend code.
 
 # 6. DASHBOARD
 
@@ -221,7 +222,7 @@ When a librarian registers a book:
 2. Create one book record.
 3. Generate a unique QR token.
 4. Generate one QR code for that book.
-5. Save the record in Cloud Firestore.
+5. Save the record in Supabase.
 6. Display the generated QR code.
 7. Allow the librarian to download or print it.
 
@@ -312,7 +313,7 @@ Business rules:
 - Prevent accidental duplicate submissions.
 - Ensure that simultaneous issue requests cannot exceed available stock.
 
-Use a Firestore transaction or trusted server-side operation for inventory-changing operations. Ensure concurrent issue requests cannot exceed available stock.
+Use a PostgreSQL transaction or secure database RPC function with appropriate row locking for inventory-changing operations.
 
 # 10. RETURN BOOK FUNCTIONALITY
 
@@ -412,40 +413,70 @@ Add filters:
 - Student name.
 - Date range.
 
-# 13. FIRESTORE DATA DESIGN
+# 13. DATABASE DESIGN
 
-Use Cloud Firestore collections and documents rather than SQL tables or migrations.
+Create the database using proper SQL migrations.
 
-Use these collections:
+Use these main tables:
 
-COLLECTION: books
+TABLE: books
 
-- Document ID: book ID
-- title, author, subject, class_grade, publisher, isbn
+- id (UUID, primary key)
+- title
+- author
+- subject
+- class_grade
+- publisher
+- isbn
 - total_copies (positive integer)
-- qr_token (unique token)
+- qr_token (unique UUID)
 - is_archived
-- created_at, updated_at
+- created_at
+- updated_at
 
-COLLECTION: students
+TABLE: students
 
-- Document ID: student ID
+- id (UUID, primary key)
 - admission_number (unique)
-- full_name, class_name, section
-- created_at, updated_at
+- full_name
+- class_name
+- section
+- created_at
+- updated_at
 
-COLLECTION: issue_records
+TABLE: issue_records
 
-- Document ID: issue record ID
-- book_id (book document ID)
-- student_id (student document ID)
-- issue_date, due_date
-- return_date (null while active)
+- id (UUID, primary key)
+- book_id (foreign key to books)
+- student_id (foreign key to students)
+- issue_date
+- due_date
+- return_date (nullable)
 - created_at
 
-Do not store a separate available_copies field. Calculate it as total_copies minus active issue records.
+TABLE: profiles
 
-Use Firestore Security Rules to restrict reads and writes to authorized librarians. Validate inventory-changing operations so concurrent issue requests cannot exceed available stock.
+- id (UUID, references authenticated user)
+- role
+- created_at
+
+Use foreign keys, indexes, appropriate constraints, and timestamp defaults.
+
+Create database functions for issuing and returning books.
+
+The issue function must:
+- Verify that the librarian is authorized.
+- Lock the book inventory row.
+- Count active issues.
+- Check availability.
+- Insert the issue record atomically.
+
+The return function must:
+- Verify librarian authorization.
+- Validate that the selected issue record is active.
+- Update its return date atomically.
+
+Configure proper RLS policies for authenticated librarian access.
 
 Do not store a separate available_copies field.
 
@@ -456,8 +487,8 @@ Do not create a separate physical-copies table in this MVP.
 Implement:
 
 - Protected routes.
-- Firebase Authentication.
-- Firestore Security Rules.
+- Supabase Authentication.
+- Row Level Security.
 - Server-side validation where required.
 - Client-side form validation.
 - Environment variables.
@@ -465,7 +496,7 @@ Implement:
 - Safe error handling.
 - Input sanitization.
 - No hardcoded passwords.
-- No exposed Firebase Admin SDK credentials.
+- No exposed service-role keys.
 - No student personal information in QR codes.
 
 Do not rely only on frontend checks to enforce business rules.
@@ -524,12 +555,16 @@ src/
     ui/
 
   lib/
-    firebase/
+    supabase/
     validations/
     utils/
 
   hooks/
   types/
+
+supabase/
+  migrations/
+  seed.sql
 
 public/
 
@@ -617,7 +652,7 @@ Follow these rules strictly:
 
 1. First inspect the existing project files and understand the current codebase.
 2. If there is no existing application, initialize the project.
-3. Configure the Firestore collections and Security Rules.
+3. Create the database schema and SQL migrations.
 4. Implement authentication and protected routes.
 5. Build the dashboard.
 6. Build book management.
@@ -625,7 +660,7 @@ Follow these rules strictly:
 8. Build student management.
 9. Implement issuing and returning transactions.
 10. Build issue history.
-11. Implement Firestore Security Rules and security checks.
+11. Implement RLS and security checks.
 12. Add demo data.
 13. Run the application and fix errors.
 14. Test all important workflows.
@@ -639,7 +674,7 @@ Do not use hardcoded sample data as the production data source.
 
 Do not leave important functionality as TODO comments.
 
-If a required Firebase environment variable or Firebase configuration is unavailable, document the exact setup steps and clearly identify what must be configured.
+If a required environment variable or Supabase configuration is unavailable, create the necessary integration, document the exact setup steps, and clearly identify what must be configured.
 
 Do not claim that a feature works until it has been implemented and tested.
 
@@ -658,7 +693,8 @@ Deliver a complete working MVP containing:
 - Return functionality.
 - Inventory calculations.
 - Issue history.
-- Firestore collection design and Security Rules.
+- PostgreSQL database migrations.
+- Supabase RLS policies.
 - Demo seed data.
 - README.
 - Environment variable example.

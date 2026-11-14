@@ -4,6 +4,8 @@ A QR-based School Library Management Web Application built with **Next.js (App R
 
 Designed specifically for school libraries to eliminate manual register paperwork and streamline book inventory, issuance, and returns.
 
+> **Architecture status:** Firebase Authentication and Cloud Firestore are the selected MVP backend. The target architecture, inventory rules, and remaining security work are documented in [MVP_SYSTEM_ARCHITECTURE.md](./MVP_SYSTEM_ARCHITECTURE.md).
+
 ---
 
 ## 🌟 Core Business Logic: Shared QR Code Architecture
@@ -35,7 +37,7 @@ Book availability is calculated from active, unreturned Firestore issue records 
 |---|---|
 | **Framework** | Next.js 16 (App Router) with React 19 |
 | **Language** | TypeScript (strict mode) |
-| **Styling** | Tailwind CSS v4 with custom SaaS design tokens |
+| **Styling** | Tailwind CSS v4 compiled locally with PostCSS |
 | **Database** | Firebase Cloud Firestore |
 | **Authentication** | Firebase Authentication (email/password) |
 | **QR Generation** | `qrcode.react` (SVG rendering with high error correction) |
@@ -43,12 +45,15 @@ Book availability is calculated from active, unreturned Firestore issue records 
 | **Forms & Validation**| React Hook Form + Zod schema validation |
 | **Icons** | Lucide React |
 
+Tailwind is compiled by the local PostCSS plugin; the app does not load the Tailwind CDN.
+Development and production builds use Webpack because the installed Windows SWC native binary currently fails to load, preventing Turbopack from running.
+
 ---
 
 ## 🚀 Getting Started
 
 ### 1. Prerequisites
-- Node.js 18+ installed on your system.
+- Node.js 20.9 or newer installed on your system.
 - A [Firebase](https://firebase.google.com/) project with Authentication and Cloud Firestore enabled.
 
 ### 2. Install Dependencies
@@ -60,7 +65,11 @@ npm install
 1. In Firebase Console, create a project and register a Web app.
 2. Enable **Authentication > Sign-in method > Email/Password**.
 3. Create a **Cloud Firestore** database.
-4. Configure Firestore Security Rules to allow only authenticated librarian accounts to access library records. Client-side route checks are not a substitute for database rules.
+4. Create the librarian account in Firebase Authentication (the app is sign-in only). Copy its UID from the Firebase console, replace `REPLACE_WITH_LIBRARIAN_UID` in `firestore.rules`, then deploy the rules:
+   ```bash
+   npx firebase-tools deploy --only firestore:rules --project YOUR_FIREBASE_PROJECT_ID
+   ```
+   Until the UID is replaced, the rules deny all access. Browser route checks are not a substitute for database rules.
 
 ### 4. Configure Environment Variables
 Create a `.env.local` file in the project root:
@@ -74,8 +83,8 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
 ```
 Find these values in Firebase Console under **Project settings > Your apps**.
 
-### 5. Create a Librarian Account and Run
-Create an account from the app's sign-up option, then start the application:
+### 5. Run the application
+After creating the librarian account in the Firebase console and deploying the rules, start the application:
 ```bash
 npm run dev
 ```
@@ -129,72 +138,38 @@ Open [http://localhost:3000](http://localhost:3000) in your web browser.
 
 ```
 ├── src/
-│   ├── app/
-│   │   ├── (dashboard)/            # Authenticated application shell
-│   │   │   ├── dashboard/          # Real-time statistics & quick actions
-│   │   │   ├── books/              # Books list, detail, add, edit & QR printing
-│   │   │   ├── scan/               # QR scanner (camera + manual input)
-│   │   │   ├── issue/              # Book issuing
-│   │   │   ├── return/             # Borrower selection & inventory restoration
-│   │   │   ├── students/           # Student directory & borrowing profiles
-│   │   │   ├── history/            # Audit logs, status filters & CSV export
-│   │   │   ├── settings/           # Library preferences & account info
-│   │   │   └── layout.tsx          # Responsive layout with dark navy sidebar
-│   │   ├── login/                  # Librarian authentication screen
-│   │   ├── globals.css             # Tailwind v4 theme tokens & animations
-│   │   └── layout.tsx              # Root HTML wrapper
-│   ├── components/
-│   │   ├── layout/sidebar.tsx      # Sidebar navigation & mobile drawer
-│   │   └── ui/toast.tsx            # Toast notification context provider
-│   ├── lib/
-│   │   ├── firebase/               # Firebase client and Firestore data access
-│   │   ├── utils/                  # Date formatting, overdue check, classnames
-│   │   └── validations/            # Zod schemas for all forms
-│   ├── types/                      # TypeScript definitions & status enum
-│   └── middleware.ts               # Root route redirect
+│   ├── app/                        # Next.js routes and layout entry points
+│   │   ├── (dashboard)/            # Authenticated routes; route group is omitted from URLs
+│   │   ├── login/
+│   │   ├── globals.css
+│   │   └── layout.tsx
+│   ├── features/                   # Domain pages and data services
+│   │   ├── auth/
+│   │   ├── books/
+│   │   ├── circulation/
+│   │   ├── dashboard/
+│   │   └── students/
+│   └── shared/                     # Reusable UI, Firebase client, utilities, schemas, and types
+│       ├── components/
+│       ├── firebase/
+│       ├── types/
+│       ├── utils/
+│       └── validation/
+├── firestore.rules                 # Single-librarian database access
+├── firebase.json                   # Firebase CLI rules deployment config
 └── README.md
 ```
 
-## 🔁 Application Flow: What Each Service Is Used For
+Route files in `src/app` stay intentionally small and re-export their feature page. This keeps URLs and Next.js routing conventions stable while feature code and services are organized by domain.
 
-```mermaid
-flowchart TD
-    Librarian[Librarian in browser] --> Login[Login page]
-    Login --> Auth[Firebase Authentication<br/>Email and password]
-    Auth --> AuthCheck[Dashboard layout checks auth state]
-    AuthCheck --> Screens[Books, students, issue, return,<br/>history, dashboard, settings]
-    Screens --> DataLayer[src/lib/firebase/db.ts]
-    DataLayer --> Firestore[Cloud Firestore]
-    Firestore --> Books[books collection]
-    Firestore --> Students[students collection]
-    Firestore --> Issues[issue_records collection]
-    Screens --> QR[QR generation and scanning<br/>qrcode.react + html5-qrcode]
-    QR --> Token[QR token looks up a book in Firestore]
-    Token --> DataLayer
-    Issues --> Availability[Availability is calculated:<br/>total copies - active issues]
-```
-
-| What you use | What it does in this app |
-|---|---|
-| **Firebase Authentication** | Signs librarians in with email/password and keeps the browser session. |
-| **Cloud Firestore** | Stores books, students, and issue/return history in the `books`, `students`, and `issue_records` collections. |
-| **`src/lib/firebase/client.ts`** | Initializes the Firebase app, Authentication, and Firestore clients from the `NEXT_PUBLIC_FIREBASE_*` settings. |
-| **`src/lib/firebase/db.ts`** | Reads and writes Firestore records; calculates current availability and dashboard/history data. |
-| **`qrcode.react`** | Creates the shared QR code for each book record. |
-| **`html5-qrcode`** | Scans a book QR code with the browser camera; manual token entry is the fallback. |
-| **Next.js / React** | Renders the app pages and checks the Firebase Auth state before showing dashboard content. |
-| **React Hook Form + Zod** | Handles form state and validates form input. |
-
-When a book is scanned, its QR token is looked up against `books`; issuing creates an `issue_records` entry, and returning fills in that record's `return_date`. Available copies are derived from the total copies minus active issue records, rather than stored separately.
-
-**Security setup:** The browser connects directly to Firebase. Configure and deploy Firestore Security Rules in Firebase Console so only authorized signed-in librarians can read or change library records. The dashboard's client-side auth check alone does not protect Firestore data.
+The unused Supabase SQL prototype, settings/preferences screen, public sign-up flow, and starter demo assets were removed from the MVP.
 
 ---
 
 ## 🛡️ Security & Privacy Architecture
 
 - **Authentication**: Firebase Authentication manages librarian sign-in.
-- **Firestore Rules**: Configure Firebase Security Rules to protect all database reads and writes. Frontend route checks alone do not secure Firestore data.
+- **Firestore Rules**: `firestore.rules` restricts library collections to the one configured librarian UID. Deploy it before using the app; frontend route checks alone do not secure Firestore data.
 - **Zero Student PII in QR Codes**: QR codes only encode an opaque random token (`/scan/[TOKEN]`), preventing student personal data leaks if a book leaves the premises.
 - **Firebase Configuration**: The Firebase web app configuration is public client configuration; enforce access through Firebase Security Rules.
 

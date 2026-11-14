@@ -15,6 +15,7 @@ export interface Book {
   total_copies: number;
   qr_token: string;
   is_archived: boolean;
+  inventory_revision?: number;
   created_at: string;
   updated_at: string;
 }

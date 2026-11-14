@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '@/components/layout/sidebar';
-import { ToastProvider } from '@/components/ui/toast';
-import { auth } from '@/lib/firebase/client';
+import Sidebar from '@/shared/components/layout/sidebar';
+import { ToastProvider } from '@/shared/components/ui/toast';
+import { auth } from '@/shared/firebase/client';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 

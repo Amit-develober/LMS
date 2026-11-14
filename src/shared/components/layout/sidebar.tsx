@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useToast } from '@/components/ui/toast';
+import { useToast } from '@/shared/components/ui/toast';
 import {
   LayoutDashboard,
   BookOpen,
@@ -12,7 +12,6 @@ import {
   BookCheck,
   Users,
   ClipboardList,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -28,10 +27,9 @@ const navItems = [
   { href: '/return', label: 'Return Book', icon: BookCheck },
   { href: '/students', label: 'Students', icon: Users },
   { href: '/history', label: 'Issue History', icon: ClipboardList },
-  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
-import { auth } from '@/lib/firebase/client';
+import { auth } from '@/shared/firebase/client';
 import { signOut } from 'firebase/auth';
 
 export default function Sidebar({ children }: { children: React.ReactNode }) {
@@ -43,7 +41,6 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      document.cookie = 'firebase_auth_token=; path=/; max-age=0';
       showToast('Logged out successfully', 'info');
       router.push('/login');
     } catch {
@@ -61,7 +58,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-slate-950/30 z-40 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -74,25 +71,28 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
           transition-transform duration-300 ease-in-out
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
-        style={{ backgroundColor: 'var(--sidebar-bg)' }}
+        style={{
+          backgroundColor: 'var(--sidebar-bg)',
+          borderRight: '1px solid var(--border)',
+        }}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
+        <div className="flex items-center gap-3 px-5 py-5 border-b" style={{ borderColor: 'var(--border)' }}>
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}
+            className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm"
+            style={{ background: 'linear-gradient(135deg, #7282e8, #5265d7)' }}
           >
             <Library className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-white font-bold text-lg leading-tight">QR Library</h1>
+            <h1 className="font-bold text-lg leading-tight" style={{ color: 'var(--text-primary)' }}>QR Library</h1>
             <p className="text-xs" style={{ color: 'var(--sidebar-text)' }}>
               Management System
             </p>
           </div>
           <button
             onClick={() => setMobileOpen(false)}
-            className="lg:hidden ml-auto text-white/60 hover:text-white"
+            className="lg:hidden ml-auto text-slate-400 hover:text-slate-700"
           >
             <X className="w-5 h-5" />
           </button>
@@ -109,12 +109,12 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
                   className={`
-                    flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                    flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
                     transition-all duration-200 group relative
                     ${
                       active
-                        ? 'text-white'
-                        : 'hover:bg-white/5'
+                        ? 'font-semibold'
+                        : 'hover:bg-[var(--sidebar-hover)]'
                     }
                   `}
                   style={{
@@ -125,10 +125,13 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                   {active && (
                     <div
                       className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full"
-                      style={{ backgroundColor: '#3b82f6' }}
+                      style={{ backgroundColor: 'var(--primary)' }}
                     />
                   )}
-                  <item.icon className={`w-5 h-5 shrink-0 ${active ? 'text-blue-400' : ''}`} />
+                  <item.icon
+                    className="w-5 h-5 shrink-0"
+                    style={{ color: active ? 'var(--primary)' : 'var(--sidebar-text)' }}
+                  />
                   <span className="flex-1">{item.label}</span>
                   {active && <ChevronRight className="w-4 h-4 opacity-50" />}
                 </Link>
@@ -138,11 +141,11 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Logout */}
-        <div className="p-3 border-t border-white/10">
+        <div className="p-3 border-t" style={{ borderColor: 'var(--border)' }}>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium
-              transition-all duration-200 hover:bg-white/5"
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium
+            transition-all duration-200 hover:bg-[var(--sidebar-hover)]"
             style={{ color: 'var(--sidebar-text)' }}
           >
             <LogOut className="w-5 h-5" />
@@ -160,7 +163,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         >
           <button
             onClick={() => setMobileOpen(true)}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-xl hover:bg-[var(--sidebar-hover)] transition-colors"
           >
             <Menu className="w-5 h-5" />
           </button>
