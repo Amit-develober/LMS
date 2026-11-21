@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getIssueRecords, returnBook } from '@/features/circulation/services/issue-records';
 import { useToast } from '@/shared/components/ui/toast';
 import { formatDate, isOverdue } from '@/shared/utils/date';
@@ -18,77 +19,68 @@ import {
 } from 'lucide-react';
 
 export default function IssueHistoryPage() {
-  const [records, setRecords] = useState<IssueRecordWithDetails[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [returningId, setReturningId] = useState<string | null>(null);
 
   const { showToast } = useToast();
-
-  const fetchRecords = useCallback(async () => {
-    setLoading(true);
-    try {
-      let filtered = await getIssueRecords();
-
-      // Apply date filter
-      if (dateFilter !== 'all') {
-        const now = new Date();
-        let fromDate = new Date();
-        if (dateFilter === 'today') {
-          fromDate.setHours(0, 0, 0, 0);
-        } else if (dateFilter === '7days') {
-          fromDate.setDate(now.getDate() - 7);
-        } else if (dateFilter === '30days') {
-          fromDate.setDate(now.getDate() - 30);
-        }
-        const fromIso = fromDate.toISOString().split('T')[0];
-        filtered = filtered.filter((r) => r.issue_date >= fromIso);
-      }
-
-      // Apply search filter client-side across joined book & student data
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        filtered = filtered.filter(
-          (r) =>
-            r.book?.title.toLowerCase().includes(q) ||
-            r.student?.full_name.toLowerCase().includes(q) ||
-            r.student?.admission_number.toLowerCase().includes(q)
-        );
-      }
-
-      // Apply status filter
-      if (statusFilter !== 'all') {
-        filtered = filtered.filter((r) => {
-          if (statusFilter === 'returned') return !!r.return_date;
-          if (statusFilter === 'active') return !r.return_date && !isOverdue(r.due_date);
-          if (statusFilter === 'overdue') return !r.return_date && isOverdue(r.due_date);
-          return true;
-        });
-      }
-
-      setRecords(filtered);
-    } catch {
-      showToast('Error loading history', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [dateFilter, search, statusFilter, showToast]);
+  const queryClient = useQueryClient();
+  const { data: allRecords = [], isLoading: loading, error } = useQuery({
+    queryKey: ['issue-history'],
+    queryFn: () => getIssueRecords(),
+  });
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchRecords();
-    }, 250);
+    const timer = setTimeout(() => setDebouncedSearch(search), 150);
     return () => clearTimeout(timer);
-  }, [fetchRecords]);
+  }, [search]);
+
+  const records = useMemo(() => {
+    let filtered = allRecords as IssueRecordWithDetails[];
+
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const fromDate = new Date();
+      if (dateFilter === 'today') fromDate.setHours(0, 0, 0, 0);
+      else if (dateFilter === '7days') fromDate.setDate(now.getDate() - 7);
+      else if (dateFilter === '30days') fromDate.setDate(now.getDate() - 30);
+      const fromIso = fromDate.toISOString().split('T')[0];
+      filtered = filtered.filter((r) => r.issue_date >= fromIso);
+    }
+
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
+      filtered = filtered.filter((r) =>
+        r.book?.title.toLowerCase().includes(q) ||
+        r.student?.full_name.toLowerCase().includes(q) ||
+        r.student?.admission_number.toLowerCase().includes(q)
+      );
+    }
+
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((r) => {
+        if (statusFilter === 'returned') return !!r.return_date;
+        if (statusFilter === 'active') return !r.return_date && !isOverdue(r.due_date);
+        if (statusFilter === 'overdue') return !r.return_date && isOverdue(r.due_date);
+        return true;
+      });
+    }
+
+    return filtered;
+  }, [allRecords, dateFilter, debouncedSearch, statusFilter]);
+
+  useEffect(() => {
+    if (error) showToast('Error loading history', 'error');
+  }, [error, showToast]);
 
   const handleReturnBook = async (recordId: string, bookTitle: string) => {
     setReturningId(recordId);
     try {
       await returnBook(recordId);
       showToast(`Returned copy of ${bookTitle} successfully`, 'success');
-      fetchRecords();
+      await queryClient.invalidateQueries({ queryKey: ['issue-history'] });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error returning book';
       showToast(msg, 'error');

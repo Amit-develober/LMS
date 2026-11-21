@@ -30,7 +30,6 @@ export default function EditBookPage() {
   });
 
   const fetchBook = useCallback(async () => {
-    setLoading(true);
     try {
       const data = await getBookById(bookId);
       if (!data) {
@@ -51,14 +50,18 @@ export default function EditBookPage() {
 
       setIssuedCount(data.issued_copies || 0);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error loading book:', error);
+      showToast('Failed to load book details', 'error');
     } finally {
       setLoading(false);
     }
   }, [bookId, showToast, router, reset]);
 
   useEffect(() => {
-    fetchBook();
+    const timer = setTimeout(() => {
+      void fetchBook();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchBook]);
 
   const onSubmit = async (data: BookFormInput) => {

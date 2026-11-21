@@ -1,12 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { getDashboardStats } from '@/features/dashboard/services/dashboard';
-import { getBooks } from '@/features/books/services/books';
-import { getIssueRecords } from '@/features/circulation/services/issue-records';
 import { formatDate, isOverdue } from '@/shared/utils/date';
-import type { DashboardStats, IssueRecordWithDetails, BookWithAvailability } from '@/shared/types';
+import type { DashboardStats } from '@/shared/types';
 import {
   BookOpen,
   BookCopy,
@@ -20,106 +16,67 @@ import {
   AlertTriangle,
   Clock,
 } from 'lucide-react';
+import { useDashboardStats, useRecentIssues, useRecentReturns, useLowAvailabilityBooks } from '../hooks/use-dashboard';
 
-export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentIssues, setRecentIssues] = useState<IssueRecordWithDetails[]>([]);
-  const [recentReturns, setRecentReturns] = useState<IssueRecordWithDetails[]>([]);
-  const [lowAvailability, setLowAvailability] = useState<BookWithAvailability[]>([]);
-  const [loading, setLoading] = useState(true);
+const statCardsConfig = [
+  { label: 'Total Book Titles', key: 'total_book_titles', icon: BookOpen, color: '#5265d7', bg: '#edf0ff' },
+  { label: 'Physical Copies', key: 'total_physical_copies', icon: BookCopy, color: '#8b5cf6', bg: '#ede9fe' },
+  { label: 'Available Copies', key: 'available_copies', icon: BookCheck, color: '#16a34a', bg: '#dcfce7' },
+  { label: 'Issued Copies', key: 'issued_copies', icon: BookX, color: '#ea580c', bg: '#fed7aa' },
+  { label: 'Registered Students', key: 'total_students', icon: Users, color: '#0891b2', bg: '#cffafe' },
+] as const;
 
-  const fetchDashboard = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [statsData, allRecords, allBooks] = await Promise.all([
-        getDashboardStats(),
-        getIssueRecords(),
-        getBooks(),
-      ]);
-
-      if (statsData) setStats(statsData);
-
-      // Active issues (last 5)
-      const active = allRecords.filter((r) => !r.return_date).slice(0, 5);
-      setRecentIssues(active);
-
-      // Returned issues (last 5)
-      const returned = allRecords.filter((r) => !!r.return_date).slice(0, 5);
-      setRecentReturns(returned);
-
-      // Low availability books (<= 3 copies left)
-      const low = allBooks.filter((b) => b.available_copies <= 3).slice(0, 5);
-      setLowAvailability(low);
-    } catch (error) {
-      console.error('Dashboard fetch error:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchDashboard();
-  }, [fetchDashboard]);
-
-  const statCards = stats
-    ? [
-        {
-          label: 'Total Book Titles',
-          value: stats.total_book_titles,
-          icon: BookOpen,
-          color: '#5265d7',
-          bg: '#edf0ff',
-        },
-        {
-          label: 'Physical Copies',
-          value: stats.total_physical_copies,
-          icon: BookCopy,
-          color: '#8b5cf6',
-          bg: '#ede9fe',
-        },
-        {
-          label: 'Available Copies',
-          value: stats.available_copies,
-          icon: BookCheck,
-          color: '#16a34a',
-          bg: '#dcfce7',
-        },
-        {
-          label: 'Issued Copies',
-          value: stats.issued_copies,
-          icon: BookX,
-          color: '#ea580c',
-          bg: '#fed7aa',
-        },
-        {
-          label: 'Registered Students',
-          value: stats.total_students,
-          icon: Users,
-          color: '#0891b2',
-          bg: '#cffafe',
-        },
-      ]
-    : [];
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <div className="skeleton h-8 w-48 mb-2" />
-          <div className="skeleton h-4 w-64" />
+function StatCard({ label, value, icon: Icon, color, bg }: { label: string; value: number; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; color: string; bg: string }) {
+  return (
+    <div
+      className="rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+      style={{
+        backgroundColor: 'var(--surface)',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-sm)',
+      }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: bg }}>
+          <Icon className="w-5 h-5" style={{ color }} />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="skeleton h-28 rounded-xl" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="skeleton h-64 rounded-xl" />
-          <div className="skeleton h-64 rounded-xl" />
-        </div>
+        <TrendingUp className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
       </div>
-    );
-  }
+      <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+        {value.toLocaleString()}
+      </p>
+      <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="skeleton h-8 w-48 mb-2" />
+        <div className="skeleton h-4 w-64" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="skeleton h-28 rounded-xl" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="skeleton h-64 rounded-xl" />
+        <div className="skeleton h-64 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+function DashboardContent() {
+  const { data: stats } = useDashboardStats();
+  const { data: recentIssues = [] } = useRecentIssues();
+  const { data: recentReturns = [] } = useRecentReturns();
+  const { data: lowAvailability = [] } = useLowAvailabilityBooks();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -164,32 +121,15 @@ export default function DashboardPage() {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 stagger-children">
-        {statCards.map((card) => (
-          <div
+        {statCardsConfig.map((card) => (
+          <StatCard
             key={card.label}
-            className="rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
-            style={{
-              backgroundColor: 'var(--surface)',
-              border: '1px solid var(--border)',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: card.bg }}
-              >
-                <card.icon className="w-5 h-5" style={{ color: card.color }} />
-              </div>
-              <TrendingUp className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-            </div>
-            <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              {card.value.toLocaleString()}
-            </p>
-            <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              {card.label}
-            </p>
-          </div>
+            label={card.label}
+            value={stats?.[card.key as keyof DashboardStats] ?? 0}
+            icon={card.icon}
+            color={card.color}
+            bg={card.bg}
+          />
         ))}
       </div>
 
@@ -368,6 +308,14 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <DashboardContent />
     </div>
   );
 }

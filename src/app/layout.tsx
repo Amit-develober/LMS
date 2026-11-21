@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { QueryProvider } from '@/shared/components/providers/query-provider';
 
 export const metadata: Metadata = {
   title: "QR Library System - School Library Management",
@@ -14,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        {children}
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );

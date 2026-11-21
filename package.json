@@ -6,14 +6,16 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
+    "@tanstack/react-query": "^5.108.2",
     "firebase": "^13.1.0",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.468.0",
-    "next": "16.4.3",
+    "next": "16.4.6",
     "qrcode.react": "^4.2.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -26,7 +28,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.6",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

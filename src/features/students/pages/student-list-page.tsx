@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getStudents } from '@/features/students/services/students';
 import { useToast } from '@/shared/components/ui/toast';
-import { StudentWithBorrowInfo } from '@/shared/types';
+import { useStudents } from '@/features/students/hooks/use-students';
 import {
   Users,
   Search,
@@ -16,30 +15,30 @@ import {
 } from 'lucide-react';
 
 export default function StudentsPage() {
-  const [students, setStudents] = useState<StudentWithBorrowInfo[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const { showToast } = useToast();
 
-  const fetchStudents = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await getStudents(search, selectedClass === 'all' ? undefined : selectedClass);
-      setStudents(data);
-    } catch {
-      showToast('Error loading student records', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [search, selectedClass, showToast]);
-
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchStudents();
-    }, 250);
+      setDebouncedSearch(search);
+    }, 150);
     return () => clearTimeout(timer);
-  }, [fetchStudents]);
+  }, [search]);
+
+  const {
+    data: students = [],
+    isLoading: loading,
+    error,
+  } = useStudents(
+    debouncedSearch,
+    selectedClass === 'all' ? undefined : selectedClass
+  );
+
+  useEffect(() => {
+    if (error) showToast('Error loading student records', 'error');
+  }, [error, showToast]);
 
   // Unique classes for filter
   const classesList = ['VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];

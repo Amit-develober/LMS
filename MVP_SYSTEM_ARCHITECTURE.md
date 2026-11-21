@@ -71,15 +71,15 @@ Issuing uses a Firestore transaction that updates an `inventory_revision` on the
 - Enforce least privilege with Firestore Security Rules. Allow only the provisioned librarian UID to read and modify library data; all other access is denied.
 - Firebase web app configuration (`NEXT_PUBLIC_FIREBASE_*`) is public client configuration, not a secret and not authorization. **Never expose a service-account private key** in client code, `NEXT_PUBLIC_*`, or committed files.
 - Keep local credentials in `.env.local`; keep it ignored by Git. Commit only an empty `.env.example` with variable names and placeholders.
-- The app has no public sign-up flow. Firestore rules explicitly allow only the configured librarian UID; creating other Firebase Auth accounts does not grant data access.
+- The app supports Google sign-in and email/password registration through Firebase Auth. Firestore rules still allow only the configured librarian UID; creating or signing into another Firebase Auth account does not grant library data access.
 - No service-account key is needed by the browser app; do not download or commit one.
 - If any real secret was committed or copied into a public artifact, remove it from the artifact and rotate/revoke it at its provider; deleting the text alone does not invalidate the credential.
 
 ## 7. Implementation status
 
-The MVP keeps Next.js, Firebase Auth, and Firestore. Firebase is declared as an application dependency. Tailwind CSS is compiled locally by PostCSS instead of loading from a remote CDN. The project uses Webpack for now because the installed Windows SWC native binary fails to load, and Turbopack cannot run on WASM bindings. Non-MVP scope removed: the unused Supabase SQL prototype, school/library preference screen, public self-registration, default public demo assets, and a legacy root redirect middleware.
+The MVP keeps Next.js, Firebase Auth, and Firestore. Firebase is declared as an application dependency. Tailwind CSS is compiled locally by PostCSS instead of loading from a remote CDN. The project uses Webpack for now because the installed Windows SWC native binary fails to load, and Turbopack cannot run on WASM bindings. Non-MVP scope removed: the unused Supabase SQL prototype, school/library preference screen, multi-user roles and access management, default public demo assets, and a legacy root redirect middleware.
 
-The app is sign-in only. Create the librarian in Firebase Console, replace the UID placeholder in `firestore.rules`, and deploy the rules before using real student data. Firestore rules and the database transaction—not the UI—are the data access and inventory safeguards.
+The app supports Google sign-in and email/password registration. Create or register the librarian account, replace the UID placeholder in `firestore.rules`, and deploy the rules before using real student data. Firestore rules and the database transaction—not the UI—are the data access and inventory safeguards.
 
 ## 8. Suggested verification before release
 

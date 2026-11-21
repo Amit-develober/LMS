@@ -30,7 +30,7 @@ export default function ScanPage() {
 
   const [mode, setMode] = useState<'camera' | 'manual'>('manual');
   const [manualToken, setManualToken] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(tokenFromUrl));
   const [book, setBook] = useState<Book | null>(null);
   const [issuedCount, setIssuedCount] = useState(0);
   const [activeRecords, setActiveRecords] = useState<IssueRecordWithDetails[]>([]);
@@ -42,10 +42,6 @@ export default function ScanPage() {
   const html5QrCodeRef = useRef<unknown>(null);
 
   const lookupBook = useCallback(async (token: string) => {
-    setLoading(true);
-    setError('');
-    setBook(null);
-
     try {
       const bookData = await getBookByQrToken(token);
       if (!bookData) {
@@ -67,9 +63,11 @@ export default function ScanPage() {
 
   // If token is in URL, auto-lookup
   useEffect(() => {
-    if (tokenFromUrl) {
-      lookupBook(tokenFromUrl);
-    }
+    if (!tokenFromUrl) return;
+    const timer = setTimeout(() => {
+      void lookupBook(tokenFromUrl);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [tokenFromUrl, lookupBook]);
 
   const startScanner = async () => {
@@ -107,6 +105,9 @@ export default function ScanPage() {
           scanner.stop().catch(console.error);
           setScanning(false);
           setMode('manual');
+          setLoading(true);
+          setError('');
+          setBook(null);
           lookupBook(token);
         },
         () => {}
@@ -149,6 +150,9 @@ export default function ScanPage() {
       setError('Please enter a QR token');
       return;
     }
+    setLoading(true);
+    setError('');
+    setBook(null);
     lookupBook(token);
   };
 

@@ -36,7 +36,6 @@ export default function BookDetailPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchBook = useCallback(async () => {
-    setLoading(true);
     try {
       const bookData = await getBookById(bookId);
 
@@ -51,14 +50,18 @@ export default function BookDetailPage() {
       const records = await getIssueRecords({ bookId, activeOnly: true });
       setActiveRecords(records);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error loading book details:', error);
+      showToast('Failed to load book details', 'error');
     } finally {
       setLoading(false);
     }
   }, [bookId, showToast, router]);
 
   useEffect(() => {
-    fetchBook();
+    const timer = setTimeout(() => {
+      void fetchBook();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchBook]);
 
   const downloadQR = () => {

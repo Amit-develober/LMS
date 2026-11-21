@@ -195,7 +195,7 @@ body {
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.4s ease-out forwards;
+  animation: fadeIn 0.18s ease-out forwards;
 }
 
 .animate-slide-in {
@@ -207,7 +207,7 @@ body {
 }
 
 .animate-fadeIn {
-  animation: fadeIn 0.4s ease-out forwards;
+  animation: fadeIn 0.18s ease-out forwards;
 }
 
 .animate-scaleIn {
@@ -217,15 +217,14 @@ body {
 /* Staggered children animation */
 .stagger-children > * {
   opacity: 0;
-  animation: fadeIn 0.4s ease-out forwards;
+  animation: fadeIn 0.18s ease-out forwards;
 }
 
-.stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
-.stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
-.stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
-.stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
-.stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
-.stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
+.stagger-children > *:nth-child(1) { animation-delay: 0.02s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.04s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.06s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.08s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.1s; }
 
 /* ============================================================
    Skeleton Loading

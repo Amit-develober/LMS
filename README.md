@@ -39,7 +39,7 @@ Book availability is calculated from active, unreturned Firestore issue records 
 | **Language** | TypeScript (strict mode) |
 | **Styling** | Tailwind CSS v4 compiled locally with PostCSS |
 | **Database** | Firebase Cloud Firestore |
-| **Authentication** | Firebase Authentication (email/password) |
+| **Authentication** | Firebase Authentication (Google and email/password) |
 | **QR Generation** | `qrcode.react` (SVG rendering with high error correction) |
 | **QR Scanning** | `html5-qrcode` (webcam camera + manual token fallback) |
 | **Forms & Validation**| React Hook Form + Zod schema validation |
@@ -58,18 +58,18 @@ Development and production builds use Webpack because the installed Windows SWC 
 
 ### 2. Install Dependencies
 ```bash
-npm install
+npm ci
 ```
 
 ### 3. Configure Firebase
 1. In Firebase Console, create a project and register a Web app.
-2. Enable **Authentication > Sign-in method > Email/Password**.
+2. Enable **Authentication > Sign-in method > Email/Password** and **Google**.
 3. Create a **Cloud Firestore** database.
-4. Create the librarian account in Firebase Authentication (the app is sign-in only). Copy its UID from the Firebase console, replace `REPLACE_WITH_LIBRARIAN_UID` in `firestore.rules`, then deploy the rules:
+4. Create the librarian account using Google sign-in or email/password registration on the app. Copy its UID from Firebase Authentication in the Firebase console, replace `REPLACE_WITH_LIBRARIAN_UID` in `firestore.rules`, then deploy the rules:
    ```bash
    npx firebase-tools deploy --only firestore:rules --project YOUR_FIREBASE_PROJECT_ID
    ```
-   Until the UID is replaced, the rules deny all access. Browser route checks are not a substitute for database rules.
+   Until the UID is replaced, the rules deny all access. New accounts do not gain access to library data until their UID is authorized. Passwords are managed by Firebase Authentication; the app does not store them in Firestore. Browser route checks are not a substitute for database rules.
 
 ### 4. Configure Environment Variables
 Create a `.env.local` file in the project root:
@@ -84,11 +84,14 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
 Find these values in Firebase Console under **Project settings > Your apps**.
 
 ### 5. Run the application
-After creating the librarian account in the Firebase console and deploying the rules, start the application:
+After registering the librarian account and deploying the authorized UID in the rules, start the application:
 ```bash
+npm run lint
+npm run typecheck
+npm run build
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your web browser.
+Open [http://localhost:3000](http://localhost:3000) in your web browser. Lint, typecheck, and build are the automated checks; the library workflows require the configured Firebase project.
 
 ---
 

@@ -38,6 +38,10 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   const { showToast } = useToast();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const prefetchRoute = (href: string) => {
+    router.prefetch(href);
+  };
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -68,7 +72,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         className={`
           fixed lg:static inset-y-0 left-0 z-50
           w-[260px] flex flex-col
-          transition-transform duration-300 ease-in-out
+          transition-transform duration-180 ease-out
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
         style={{
@@ -107,10 +111,12 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch
+                  onPointerEnter={() => prefetchRoute(item.href)}
                   onClick={() => setMobileOpen(false)}
                   className={`
                     flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
-                    transition-all duration-200 group relative
+                    transition-colors duration-120 group relative
                     ${
                       active
                         ? 'font-semibold'

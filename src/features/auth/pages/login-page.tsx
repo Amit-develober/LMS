@@ -7,6 +7,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { auth } from '@/shared/firebase/client';
 import {
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
   setPersistence,
   browserLocalPersistence,
   onAuthStateChanged,
@@ -17,8 +20,9 @@ import { Library, Eye, EyeOff, Loader2, BookOpen } from 'lucide-react';
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<'email' | 'google' | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -39,31 +43,62 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    setLoading(true);
+    setLoadingAction('email');
     setError('');
 
     try {
       await setPersistence(auth, browserLocalPersistence);
-      await signInWithEmailAndPassword(auth, data.email, data.password);
+      if (isCreatingAccount) {
+        await createUserWithEmailAndPassword(auth, data.email, data.password);
+      } else {
+        await signInWithEmailAndPassword(auth, data.email, data.password);
+      }
       router.replace('/dashboard');
       router.refresh();
     } catch (err: unknown) {
       const code = typeof err === 'object' && err !== null && 'code' in err
         ? err.code
         : undefined;
-      if (code === 'auth/email-already-in-use') {
+      if (code === 'auth/email-already-in-use' || code === 'auth/account-exists-with-different-credential') {
         setError('An account with this email already exists. Sign in instead.');
       } else if (code === 'auth/invalid-credential' || code === 'auth/user-not-found') {
         setError('Email or password is incorrect.');
       } else if (code === 'auth/weak-password') {
         setError('Password must be at least 6 characters.');
+      } else if (code === 'auth/popup-closed-by-user') {
+        setError('Google sign-in was cancelled. Please try again.');
       } else if (err instanceof Error) {
         setError(err.message);
       } else {
         setError('Authentication failed. Please try again.');
       }
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    setLoadingAction('google');
+    setError('');
+
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+      await signInWithPopup(auth, new GoogleAuthProvider());
+      router.replace('/dashboard');
+      router.refresh();
+    } catch (err: unknown) {
+      const code = typeof err === 'object' && err !== null && 'code' in err
+        ? err.code
+        : undefined;
+      if (code === 'auth/popup-closed-by-user') {
+        setError('Google sign-in was cancelled. Please try again.');
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Google sign-in failed. Please try again.');
+      }
+    } finally {
+      setLoadingAction(null);
     }
   };
 
@@ -113,6 +148,29 @@ export default function LoginPage() {
             boxShadow: 'var(--shadow-xl)',
           }}
         >
+          <button
+            type="button"
+            onClick={signInWithGoogle}
+            disabled={loadingAction !== null}
+            className="w-full py-3 rounded-2xl text-sm font-semibold transition-all
+              disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-md flex
+              items-center justify-center gap-2"
+            style={{
+              backgroundColor: 'var(--surface)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            {loadingAction === 'google' && <Loader2 className="w-4 h-4 animate-spin" />}
+            {loadingAction === 'google' ? 'Connecting to Google...' : 'Continue with Google'}
+          </button>
+
+          <div className="flex items-center gap-3 my-5">
+            <div className="h-px flex-1" style={{ backgroundColor: 'var(--border)' }} />
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>or with email</span>
+            <div className="h-px flex-1" style={{ backgroundColor: 'var(--border)' }} />
+          </div>
+
           <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             {error && (
               <div
@@ -159,8 +217,8 @@ export default function LoginPage() {
                 <input
                   {...register('password')}
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
-                  autoComplete="current-password"
+                  placeholder={isCreatingAccount ? 'Create a password' : 'Enter your password'}
+                  autoComplete={isCreatingAccount ? 'new-password' : 'current-password'}
                   className="w-full px-4 py-3 pr-12 rounded-2xl text-sm placeholder-slate-400
                     focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
                   style={{
@@ -189,7 +247,7 @@ export default function LoginPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loadingAction !== null}
               className="w-full py-3 rounded-2xl text-sm font-semibold text-white
                 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed
                 hover:shadow-lg active:scale-[0.98] flex items-center justify-center gap-2"
@@ -198,16 +256,31 @@ export default function LoginPage() {
                 boxShadow: '0 5px 16px rgba(82, 101, 215, 0.25)',
               }}
             >
-              {loading ? (
+              {loadingAction === 'email' ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Signing in...
+                  {isCreatingAccount ? 'Creating account...' : 'Signing in...'}
                 </>
               ) : (
-                'Sign In'
+                isCreatingAccount ? 'Create Account' : 'Sign In'
               )}
             </button>
           </form>
+
+          <p className="mt-5 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
+            {isCreatingAccount ? 'Already have an account?' : "Don't have an account?"}{' '}
+            <button
+              type="button"
+              disabled={loadingAction !== null}
+              onClick={() => {
+                setIsCreatingAccount(!isCreatingAccount);
+                setError('');
+              }}
+              className="font-semibold text-indigo-600 hover:text-indigo-700"
+            >
+              {isCreatingAccount ? 'Sign in' : 'Create one'}
+            </button>
+          </p>
         </div>
 
         {/* Footer */}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getBookById, getBooks } from '@/features/books/services/books';
@@ -32,7 +32,7 @@ function IssueBookContent() {
   const [bookSearch, setBookSearch] = useState('');
   const [booksList, setBooksList] = useState<BookWithAvailability[]>([]);
   const [selectedBook, setSelectedBook] = useState<BookWithAvailability | null>(null);
-  const [loadingBooks, setLoadingBooks] = useState(false);
+  const [loadingBooks, setLoadingBooks] = useState(Boolean(initialBookId));
 
   const [studentSearch, setStudentSearch] = useState('');
   const [studentsList, setStudentsList] = useState<Student[]>([]);
@@ -47,15 +47,7 @@ function IssueBookContent() {
     dueDate: string;
   } | null>(null);
 
-  // Load initial book if passed via query param
-  useEffect(() => {
-    if (initialBookId) {
-      loadBookById(initialBookId);
-    }
-  }, [initialBookId]);
-
-  const loadBookById = async (id: string) => {
-    setLoadingBooks(true);
+  const loadBookById = useCallback(async (id: string) => {
     try {
       const book = await getBookById(id);
       if (book) {
@@ -69,51 +61,66 @@ function IssueBookContent() {
     } finally {
       setLoadingBooks(false);
     }
-  };
+  }, [showToast]);
+
+  // Load initial book if passed via query param
+  useEffect(() => {
+    if (!initialBookId) return;
+    const timer = setTimeout(() => {
+      void loadBookById(initialBookId);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [initialBookId, loadBookById]);
 
   // Search books debounce
   useEffect(() => {
     if (!bookSearch.trim() || (selectedBook && selectedBook.title === bookSearch)) {
-      setBooksList([]);
       return;
     }
 
+    let cancelled = false;
     const timer = setTimeout(async () => {
       setLoadingBooks(true);
       try {
         const books = await getBooks(bookSearch);
-        setBooksList(books.slice(0, 6));
+        if (!cancelled) setBooksList(books.slice(0, 6));
       } catch {
-        // silent
+        if (!cancelled) showToast('Failed to search books', 'error');
       } finally {
-        setLoadingBooks(false);
+        if (!cancelled) setLoadingBooks(false);
       }
     }, 250);
 
-    return () => clearTimeout(timer);
-  }, [bookSearch, selectedBook]);
+    return () => {
+      clearTimeout(timer);
+      cancelled = true;
+    };
+  }, [bookSearch, selectedBook, showToast]);
 
   // Search students debounce
   useEffect(() => {
     if (!studentSearch.trim() || (selectedStudent && selectedStudent.full_name === studentSearch)) {
-      setStudentsList([]);
       return;
     }
 
+    let cancelled = false;
     const timer = setTimeout(async () => {
       setLoadingStudents(true);
       try {
         const students = await getStudents(studentSearch);
-        setStudentsList(students.slice(0, 6));
+        if (!cancelled) setStudentsList(students.slice(0, 6));
       } catch {
-        // silent
+        if (!cancelled) showToast('Failed to search students', 'error');
       } finally {
-        setLoadingStudents(false);
+        if (!cancelled) setLoadingStudents(false);
       }
     }, 250);
 
-    return () => clearTimeout(timer);
-  }, [studentSearch, selectedStudent]);
+    return () => {
+      clearTimeout(timer);
+      cancelled = true;
+    };
+  }, [studentSearch, selectedStudent, showToast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -245,6 +252,8 @@ function IssueBookContent() {
                 value={bookSearch}
                 onChange={(e) => {
                   setBookSearch(e.target.value);
+                  setBooksList([]);
+                  setLoadingBooks(false);
                   if (selectedBook && e.target.value !== selectedBook.title) {
                     setSelectedBook(null);
                   }
@@ -363,6 +372,8 @@ function IssueBookContent() {
                 value={studentSearch}
                 onChange={(e) => {
                   setStudentSearch(e.target.value);
+                  setStudentsList([]);
+                  setLoadingStudents(false);
                   if (selectedStudent && e.target.value !== selectedStudent.full_name) {
                     setSelectedStudent(null);
                   }

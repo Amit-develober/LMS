@@ -1,11 +1,13 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   getDocsFromServer,
   query,
   runTransaction,
   where,
+  type QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/shared/firebase/client';
 import type {
@@ -85,27 +87,45 @@ export async function getIssueRecords(filters?: {
   activeOnly?: boolean;
 }): Promise<IssueRecordWithDetails[]> {
   const issuesRef = collection(db, 'issue_records');
-  const snapshot = await getDocs(issuesRef);
+  const constraints: QueryConstraint[] = [];
+
+  if (filters?.bookId) {
+    constraints.push(where('book_id', '==', filters.bookId));
+  }
+  if (filters?.studentId) {
+    constraints.push(where('student_id', '==', filters.studentId));
+  }
+  if (filters?.activeOnly && !filters.bookId && !filters.studentId) {
+    constraints.push(where('return_date', '==', null));
+  }
+  const issueQuery = constraints.length > 0 ? query(issuesRef, ...constraints) : query(issuesRef);
+
+  const snapshot = await getDocs(issueQuery);
 
   const records: IssueRecord[] = snapshot.docs.map((d) => ({
     id: d.id,
     ...(d.data() as Omit<IssueRecord, 'id'>),
   }));
 
-  const [booksSnap, studentsSnap] = await Promise.all([
-    getDocs(collection(db, 'books')),
-    getDocs(collection(db, 'students')),
-  ]);
-
   const booksMap: Record<string, Book> = {};
-  booksSnap.forEach((d) => {
-    booksMap[d.id] = { id: d.id, ...(d.data() as Omit<Book, 'id'>) };
-  });
-
   const studentsMap: Record<string, Student> = {};
-  studentsSnap.forEach((d) => {
-    studentsMap[d.id] = { id: d.id, ...(d.data() as Omit<Student, 'id'>) };
-  });
+  const bookIds = Array.from(new Set(records.map((record) => record.book_id).filter(Boolean)));
+  const studentIds = Array.from(new Set(records.map((record) => record.student_id).filter(Boolean)));
+
+  await Promise.all([
+    Promise.all(bookIds.map(async (id) => {
+      const snap = await getDoc(doc(db, 'books', id));
+      if (snap.exists()) {
+        booksMap[id] = { id: snap.id, ...(snap.data() as Omit<Book, 'id'>) };
+      }
+    })),
+    Promise.all(studentIds.map(async (id) => {
+      const snap = await getDoc(doc(db, 'students', id));
+      if (snap.exists()) {
+        studentsMap[id] = { id: snap.id, ...(snap.data() as Omit<Student, 'id'>) };
+      }
+    })),
+  ]);
 
   let joined: IssueRecordWithDetails[] = records.map((record) => {
     const book = booksMap[record.book_id] || {

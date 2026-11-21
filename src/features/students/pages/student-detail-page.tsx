@@ -34,7 +34,6 @@ export default function StudentDetailPage() {
   const [returningId, setReturningId] = useState<string | null>(null);
 
   const fetchStudentData = useCallback(async () => {
-    setLoading(true);
     try {
       const studentData = await getStudentById(id);
       if (!studentData) {
@@ -54,7 +53,10 @@ export default function StudentDetailPage() {
   }, [id, router, showToast]);
 
   useEffect(() => {
-    fetchStudentData();
+    const timer = setTimeout(() => {
+      void fetchStudentData();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchStudentData]);
 
   const handleReturnBook = async (recordId: string, bookTitle: string) => {

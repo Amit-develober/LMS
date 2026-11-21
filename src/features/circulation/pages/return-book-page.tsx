@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getBookById, getBooks } from '@/features/books/services/books';
@@ -31,7 +31,7 @@ function ReturnBookContent() {
   const [bookSearch, setBookSearch] = useState('');
   const [booksList, setBooksList] = useState<BookWithAvailability[]>([]);
   const [selectedBook, setSelectedBook] = useState<BookWithAvailability | null>(null);
-  const [loadingBooks, setLoadingBooks] = useState(false);
+  const [loadingBooks, setLoadingBooks] = useState(Boolean(initialBookId));
 
   // Active records for selected book
   const [activeRecords, setActiveRecords] = useState<IssueRecordWithDetails[]>([]);
@@ -45,15 +45,19 @@ function ReturnBookContent() {
     studentName: string;
   } | null>(null);
 
-  // Load book from query param
-  useEffect(() => {
-    if (initialBookId) {
-      loadBookById(initialBookId);
+  const fetchActiveRecords = useCallback(async (bookId: string) => {
+    setLoadingRecords(true);
+    try {
+      const records = await getIssueRecords({ bookId, activeOnly: true });
+      setActiveRecords(records);
+    } catch {
+      showToast('Error fetching records', 'error');
+    } finally {
+      setLoadingRecords(false);
     }
-  }, [initialBookId]);
+  }, [showToast]);
 
-  const loadBookById = async (id: string) => {
-    setLoadingBooks(true);
+  const loadBookById = useCallback(async (id: string) => {
     try {
       const book = await getBookById(id);
       if (book) {
@@ -68,41 +72,41 @@ function ReturnBookContent() {
     } finally {
       setLoadingBooks(false);
     }
-  };
+  }, [fetchActiveRecords, showToast]);
 
-  const fetchActiveRecords = async (bookId: string) => {
-    setLoadingRecords(true);
-    try {
-      const records = await getIssueRecords({ bookId, activeOnly: true });
-      setActiveRecords(records);
-    } catch {
-      showToast('Error fetching records', 'error');
-    } finally {
-      setLoadingRecords(false);
-    }
-  };
+  // Load book from query param
+  useEffect(() => {
+    if (!initialBookId) return;
+    const timer = setTimeout(() => {
+      void loadBookById(initialBookId);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [initialBookId, loadBookById]);
 
   // Search books debounce
   useEffect(() => {
     if (!bookSearch.trim() || (selectedBook && selectedBook.title === bookSearch)) {
-      setBooksList([]);
       return;
     }
 
+    let cancelled = false;
     const timer = setTimeout(async () => {
       setLoadingBooks(true);
       try {
         const books = await getBooks(bookSearch);
-        setBooksList(books.slice(0, 6));
+        if (!cancelled) setBooksList(books.slice(0, 6));
       } catch {
-        // silent
+        if (!cancelled) showToast('Failed to search books', 'error');
       } finally {
-        setLoadingBooks(false);
+        if (!cancelled) setLoadingBooks(false);
       }
     }, 250);
 
-    return () => clearTimeout(timer);
-  }, [bookSearch, selectedBook]);
+    return () => {
+      clearTimeout(timer);
+      cancelled = true;
+    };
+  }, [bookSearch, selectedBook, showToast]);
 
   const handleSelectBook = (book: BookWithAvailability) => {
     setSelectedBook(book);
@@ -229,6 +233,8 @@ function ReturnBookContent() {
             value={bookSearch}
             onChange={(e) => {
               setBookSearch(e.target.value);
+              setBooksList([]);
+              setLoadingBooks(false);
               if (selectedBook && e.target.value !== selectedBook.title) {
                 setSelectedBook(null);
                 setActiveRecords([]);
