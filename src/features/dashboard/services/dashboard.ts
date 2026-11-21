@@ -1,12 +1,13 @@
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/shared/firebase/client';
+import { withFirestoreTimeout } from '@/shared/firebase/firestore-timeout';
 import type { Book, DashboardStats, IssueRecord } from '@/shared/types';
 
 export async function getDashboardStats(): Promise<DashboardStats> {
   const [booksSnap, studentsSnap, issuesSnap] = await Promise.all([
-    getDocs(collection(db, 'books')),
-    getDocs(collection(db, 'students')),
-    getDocs(collection(db, 'issue_records')),
+    withFirestoreTimeout(getDocs(collection(db, 'books')), 'Loading dashboard books'),
+    withFirestoreTimeout(getDocs(collection(db, 'students')), 'Loading dashboard students'),
+    withFirestoreTimeout(getDocs(collection(db, 'issue_records')), 'Loading dashboard loans'),
   ]);
 
   let totalPhysicalCopies = 0;

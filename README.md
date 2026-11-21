@@ -190,3 +190,8 @@ The unused Supabase SQL prototype, settings/preferences screen, public sign-up f
    - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
    - `NEXT_PUBLIC_FIREBASE_APP_ID`
 4. Click **Deploy**. Vercel will automatically build the Next.js production bundle.
+5. Firestore rules are deployed separately from the Vercel app. In Firebase Authentication, copy the librarian account's UID, replace `REPLACE_WITH_LIBRARIAN_UID` in `firestore.rules`, and deploy the rules to the same Firebase project named by `NEXT_PUBLIC_FIREBASE_PROJECT_ID`:
+   ```bash
+   npx firebase-tools deploy --only firestore:rules --project YOUR_FIREBASE_PROJECT_ID
+   ```
+   Do not replace the UID check with an allow-all rule. If registration or data pages cannot reach Firestore, the app now reports a timeout after 15 seconds; a timed-out book registration can be retried safely without creating a duplicate.

@@ -141,7 +141,13 @@ export default function BooksPage() {
   }, [archiveMutation, showToast]);
 
   if (isLoading) return <BooksSkeleton />;
-  if (error) return <div className="text-center py-16 text-red-500">Failed to load books</div>;
+  if (error) {
+    return (
+      <div role="alert" className="text-center py-16 text-red-500">
+        {error instanceof Error ? error.message : 'Failed to load books'}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

@@ -9,6 +9,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from '@/shared/firebase/client';
+import { withFirestoreTimeout } from '@/shared/firebase/firestore-timeout';
 import type { Student, StudentWithBorrowInfo } from '@/shared/types';
 
 export async function getStudents(
@@ -16,7 +17,7 @@ export async function getStudents(
   classNameFilter?: string
 ): Promise<StudentWithBorrowInfo[]> {
   const studentsRef = collection(db, 'students');
-  const snapshot = await getDocs(studentsRef);
+  const snapshot = await withFirestoreTimeout(getDocs(studentsRef), 'Loading students');
 
   let students: Student[] = snapshot.docs.map((d) => ({
     id: d.id,
@@ -37,7 +38,10 @@ export async function getStudents(
   }
 
   const issuesRef = collection(db, 'issue_records');
-  const allIssuesSnapshot = await getDocs(issuesRef);
+  const allIssuesSnapshot = await withFirestoreTimeout(
+    getDocs(issuesRef),
+    'Loading student loan records'
+  );
   const activeMap: Record<string, number> = {};
   const totalMap: Record<string, number> = {};
 
@@ -60,12 +64,15 @@ export async function getStudents(
 
 export async function getStudentById(id: string): Promise<StudentWithBorrowInfo | null> {
   const studentRef = doc(db, 'students', id);
-  const snap = await getDoc(studentRef);
+  const snap = await withFirestoreTimeout(getDoc(studentRef), 'Loading student details');
   if (!snap.exists()) return null;
 
   const student = { id: snap.id, ...(snap.data() as Omit<Student, 'id'>) };
   const issuesRef = collection(db, 'issue_records');
-  const issues = await getDocs(query(issuesRef, where('student_id', '==', id)));
+  const issues = await withFirestoreTimeout(
+    getDocs(query(issuesRef, where('student_id', '==', id))),
+    'Loading student loan history'
+  );
 
   let active = 0;
   issues.forEach((issue) => {

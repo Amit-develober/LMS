@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { addBook } from '@/features/books/services/books';
 import { bookSchema, type BookFormInput } from '@/shared/validation/schemas';
+import { FirestoreRequestTimeoutError } from '@/shared/firebase/firestore-timeout';
 import { useToast } from '@/shared/components/ui/toast';
 import { QRCodeSVG } from 'qrcode.react';
 import {
@@ -18,10 +19,41 @@ import {
   CheckCircle,
 } from 'lucide-react';
 
+type PendingBookRegistration = {
+  id: string;
+  data: Parameters<typeof addBook>[0];
+};
+
+function getRegistrationError(error: unknown): string {
+  if (error instanceof FirestoreRequestTimeoutError) {
+    return `${error.message} The save may still complete. Retry safely; it reuses the same book ID.`;
+  }
+
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error &&
+    typeof error.code === 'string'
+      ? error.code
+      : '';
+
+  if (code === 'permission-denied' || code.endsWith('/permission-denied')) {
+    return 'Firebase denied this write. Check that the signed-in librarian UID is allowed in firestore.rules and deploy those rules to the Firebase project configured in Vercel.';
+  }
+  if (code === 'unauthenticated' || code.endsWith('/unauthenticated')) {
+    return 'Your session has expired. Sign in again, then retry registration.';
+  }
+  if (code === 'unavailable' || code.endsWith('/unavailable')) {
+    return 'Firestore is unavailable. Check your internet connection and Vercel Firebase environment variables, then retry.';
+  }
+
+  return error instanceof Error ? error.message : 'Failed to register book';
+}
+
 export default function NewBookPage() {
   const router = useRouter();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [pendingAttempt, setPendingAttempt] = useState<PendingBookRegistration | null>(null);
+  const [registrationError, setRegistrationError] = useState('');
   const [createdBook, setCreatedBook] = useState<{
     id: string;
     title: string;
@@ -40,36 +72,47 @@ export default function NewBookPage() {
     },
   });
 
-  const onSubmit = async (data: BookFormInput) => {
+  const saveRegistration = async (attempt: PendingBookRegistration) => {
+    if (loading) return;
     setLoading(true);
+    setRegistrationError('');
+    setPendingAttempt(attempt);
+
     try {
-      const qr_token = crypto.randomUUID();
-      const bookData = {
-        title: data.title.trim(),
-        author: data.author.trim(),
-        subject: data.subject.trim(),
-        class_grade: data.class_grade?.trim() || null,
-        publisher: data.publisher?.trim() || null,
-        isbn: data.isbn?.trim() || null,
-        total_copies: data.total_copies,
-        qr_token,
-        is_archived: false,
-      };
+      const id = await addBook(attempt.data, attempt.id);
 
-      const id = await addBook(bookData);
-
+      setPendingAttempt(null);
       setCreatedBook({
         id,
-        title: data.title.trim(),
-        qr_token,
+        title: attempt.data.title,
+        qr_token: attempt.data.qr_token,
       });
       showToast('Book registered successfully!', 'success');
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to register book';
-      showToast(message, 'error');
+      setRegistrationError(getRegistrationError(error));
     } finally {
       setLoading(false);
     }
+  };
+
+  const onSubmit = async (data: BookFormInput) => {
+    const bookData = {
+      title: data.title.trim(),
+      author: data.author.trim(),
+      subject: data.subject.trim(),
+      class_grade: data.class_grade?.trim() || null,
+      publisher: data.publisher?.trim() || null,
+      isbn: data.isbn?.trim() || null,
+      total_copies: data.total_copies,
+      qr_token: crypto.randomUUID(),
+      is_archived: false,
+    };
+
+    await saveRegistration({ id: crypto.randomUUID(), data: bookData });
+  };
+
+  const retryRegistration = () => {
+    if (pendingAttempt) void saveRegistration(pendingAttempt);
   };
 
   const downloadQR = () => {
@@ -232,6 +275,24 @@ export default function NewBookPage() {
         }}
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {registrationError && (
+            <div
+              role="alert"
+              className="rounded-lg px-4 py-3 text-sm"
+              style={{
+                backgroundColor: 'var(--red-bg)',
+                color: 'var(--red)',
+                border: '1px solid var(--red-light)',
+              }}
+            >
+              {registrationError}
+              {pendingAttempt && (
+                <p className="mt-1">
+                  Your form is preserved. Retry uses the same book ID to avoid duplicate records.
+                </p>
+              )}
+            </div>
+          )}
           {/* Title */}
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
@@ -239,6 +300,7 @@ export default function NewBookPage() {
             </label>
             <input
               {...register('title')}
+              disabled={loading || !!pendingAttempt}
               placeholder="e.g. Physics"
               className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
               style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg)' }}
@@ -253,6 +315,7 @@ export default function NewBookPage() {
             </label>
             <input
               {...register('author')}
+              disabled={loading || !!pendingAttempt}
               placeholder="e.g. NCERT"
               className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
               style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg)' }}
@@ -268,6 +331,7 @@ export default function NewBookPage() {
               </label>
               <input
                 {...register('subject')}
+                disabled={loading || !!pendingAttempt}
                 placeholder="e.g. Science"
                 className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
                 style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg)' }}
@@ -280,6 +344,7 @@ export default function NewBookPage() {
               </label>
               <input
                 {...register('class_grade')}
+                disabled={loading || !!pendingAttempt}
                 placeholder="e.g. Class XI"
                 className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
                 style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg)' }}
@@ -295,6 +360,7 @@ export default function NewBookPage() {
               </label>
               <input
                 {...register('publisher')}
+                disabled={loading || !!pendingAttempt}
                 placeholder="e.g. NCERT Publications"
                 className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
                 style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg)' }}
@@ -306,6 +372,7 @@ export default function NewBookPage() {
               </label>
               <input
                 {...register('isbn')}
+                disabled={loading || !!pendingAttempt}
                 placeholder="e.g. 978-0-13-468599-1"
                 className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
                 style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg)' }}
@@ -320,6 +387,7 @@ export default function NewBookPage() {
             </label>
             <input
               {...register('total_copies', { valueAsNumber: true })}
+              disabled={loading || !!pendingAttempt}
               type="number"
               min={1}
               placeholder="e.g. 10"
@@ -336,7 +404,8 @@ export default function NewBookPage() {
           {/* Submit */}
           <div className="flex items-center gap-3 pt-2">
             <button
-              type="submit"
+              type={pendingAttempt ? 'button' : 'submit'}
+              onClick={pendingAttempt ? retryRegistration : undefined}
               disabled={loading}
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium text-white
                 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-lg active:scale-[0.98]"
@@ -353,7 +422,7 @@ export default function NewBookPage() {
               ) : (
                 <>
                   <BookPlus className="w-4 h-4" />
-                  Register Book
+                  {pendingAttempt ? 'Retry Registration' : 'Register Book'}
                 </>
               )}
             </button>

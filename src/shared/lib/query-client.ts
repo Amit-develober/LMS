@@ -1,6 +1,7 @@
 'use client';
 
 import { QueryClient } from '@tanstack/react-query';
+import { FirestoreRequestTimeoutError } from '@/shared/firebase/firestore-timeout';
 
 export function createQueryClient() {
   return new QueryClient({
@@ -11,7 +12,8 @@ export function createQueryClient() {
         refetchOnWindowFocus: false,
         refetchOnMount: false,
         refetchOnReconnect: 'always',
-        retry: 1,
+        retry: (failureCount, error) =>
+          !(error instanceof FirestoreRequestTimeoutError) && failureCount < 1,
         retryDelay: 1000,
       },
       mutations: {

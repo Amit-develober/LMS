@@ -10,6 +10,7 @@ import {
   type QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/shared/firebase/client';
+import { withFirestoreTimeout } from '@/shared/firebase/firestore-timeout';
 import type {
   Book,
   IssueRecord,
@@ -20,7 +21,10 @@ import type {
 export async function issueBook(bookId: string, studentId: string, dueDate: string): Promise<string> {
   return runTransaction(db, async (transaction) => {
     const bookRef = doc(db, 'books', bookId);
-    const bookSnap = await transaction.get(bookRef);
+    const bookSnap = await withFirestoreTimeout(
+      transaction.get(bookRef),
+      'Loading book before issuing'
+    );
 
     if (!bookSnap.exists()) {
       throw new Error('Book not found');
@@ -32,8 +36,11 @@ export async function issueBook(bookId: string, studentId: string, dueDate: stri
     }
 
     const issuesRef = collection(db, 'issue_records');
-    const activeIssuesSnap = await getDocsFromServer(
-      query(issuesRef, where('book_id', '==', bookId), where('return_date', '==', null))
+    const activeIssuesSnap = await withFirestoreTimeout(
+      getDocsFromServer(
+        query(issuesRef, where('book_id', '==', bookId), where('return_date', '==', null))
+      ),
+      'Checking available copies'
     );
 
     if (activeIssuesSnap.size >= bookData.total_copies) {
@@ -63,7 +70,10 @@ export async function issueBook(bookId: string, studentId: string, dueDate: stri
 export async function returnBook(issueRecordId: string): Promise<boolean> {
   const recordRef = doc(db, 'issue_records', issueRecordId);
   await runTransaction(db, async (transaction) => {
-    const snap = await transaction.get(recordRef);
+    const snap = await withFirestoreTimeout(
+      transaction.get(recordRef),
+      'Loading issue record before return'
+    );
     if (!snap.exists()) {
       throw new Error('Issue record not found');
     }
@@ -100,7 +110,7 @@ export async function getIssueRecords(filters?: {
   }
   const issueQuery = constraints.length > 0 ? query(issuesRef, ...constraints) : query(issuesRef);
 
-  const snapshot = await getDocs(issueQuery);
+  const snapshot = await withFirestoreTimeout(getDocs(issueQuery), 'Loading issue history');
 
   const records: IssueRecord[] = snapshot.docs.map((d) => ({
     id: d.id,
@@ -114,13 +124,19 @@ export async function getIssueRecords(filters?: {
 
   await Promise.all([
     Promise.all(bookIds.map(async (id) => {
-      const snap = await getDoc(doc(db, 'books', id));
+      const snap = await withFirestoreTimeout(
+        getDoc(doc(db, 'books', id)),
+        'Loading book details'
+      );
       if (snap.exists()) {
         booksMap[id] = { id: snap.id, ...(snap.data() as Omit<Book, 'id'>) };
       }
     })),
     Promise.all(studentIds.map(async (id) => {
-      const snap = await getDoc(doc(db, 'students', id));
+      const snap = await withFirestoreTimeout(
+        getDoc(doc(db, 'students', id)),
+        'Loading student details'
+      );
       if (snap.exists()) {
         studentsMap[id] = { id: snap.id, ...(snap.data() as Omit<Student, 'id'>) };
       }

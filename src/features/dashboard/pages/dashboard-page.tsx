@@ -73,13 +73,28 @@ function DashboardSkeleton() {
 }
 
 function DashboardContent() {
-  const { data: stats } = useDashboardStats();
-  const { data: recentIssues = [] } = useRecentIssues();
-  const { data: recentReturns = [] } = useRecentReturns();
-  const { data: lowAvailability = [] } = useLowAvailabilityBooks();
+  const { data: stats, error: statsError } = useDashboardStats();
+  const { data: recentIssues = [], error: issuesError } = useRecentIssues();
+  const { data: recentReturns = [], error: returnsError } = useRecentReturns();
+  const { data: lowAvailability = [], error: availabilityError } = useLowAvailabilityBooks();
+  const dashboardError = statsError ?? issuesError ?? returnsError ?? availabilityError;
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {dashboardError && (
+        <div
+          role="alert"
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{
+            backgroundColor: 'var(--red-bg)',
+            color: 'var(--red)',
+            border: '1px solid var(--red-light)',
+          }}
+        >
+          Some dashboard data could not be loaded.{' '}
+          {dashboardError instanceof Error ? dashboardError.message : 'Please try again.'}
+        </div>
+      )}
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
