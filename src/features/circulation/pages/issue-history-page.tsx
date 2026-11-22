@@ -4,9 +4,10 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getIssueRecords, returnBook } from '@/features/circulation/services/issue-records';
+import { invalidateLibraryQueries } from '@/shared/lib/invalidate-library-queries';
 import { useToast } from '@/shared/components/ui/toast';
-import { formatDate, isOverdue } from '@/shared/utils/date';
-import { IssueRecordWithDetails } from '@/shared/types';
+import { formatDate, getTodayDate, isOverdue, toDateOnlyString } from '@/shared/utils/date';
+import type { IssueRecordWithDetails } from '@/shared/types';
 import {
   ClipboardList,
   Search,
@@ -17,6 +18,11 @@ import {
   BookCheck,
   Download,
 } from 'lucide-react';
+
+function csvCell(value: string): string {
+  const safeValue = /^[\t\r\n ]*[=+\-@]/.test(value) ? `'${value}` : value;
+  return `"${safeValue.replace(/"/g, '""')}"`;
+}
 
 export default function IssueHistoryPage() {
   const [search, setSearch] = useState('');
@@ -46,7 +52,7 @@ export default function IssueHistoryPage() {
       if (dateFilter === 'today') fromDate.setHours(0, 0, 0, 0);
       else if (dateFilter === '7days') fromDate.setDate(now.getDate() - 7);
       else if (dateFilter === '30days') fromDate.setDate(now.getDate() - 30);
-      const fromIso = fromDate.toISOString().split('T')[0];
+      const fromIso = toDateOnlyString(fromDate);
       filtered = filtered.filter((r) => r.issue_date >= fromIso);
     }
 
@@ -80,7 +86,7 @@ export default function IssueHistoryPage() {
     try {
       await returnBook(recordId);
       showToast(`Returned copy of ${bookTitle} successfully`, 'success');
-      await queryClient.invalidateQueries({ queryKey: ['issue-history'] });
+      await invalidateLibraryQueries(queryClient);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error returning book';
       showToast(msg, 'error');
@@ -109,26 +115,27 @@ export default function IssueHistoryPage() {
       else if (isOverdue(r.due_date)) status = 'Overdue';
 
       return [
-        `"${r.book?.title || ''}"`,
-        `"${r.book?.author || ''}"`,
-        `"${r.student?.full_name || ''}"`,
-        `"${r.student?.admission_number || ''}"`,
-        `"${r.student?.class_name || ''}-${r.student?.section || ''}"`,
+        r.book?.title || '',
+        r.book?.author || '',
+        r.student?.full_name || '',
+        r.student?.admission_number || '',
+        `${r.student?.class_name || ''}-${r.student?.section || ''}`,
         r.issue_date,
         r.due_date,
         r.return_date || 'Not returned',
         status,
-      ].join(',');
+      ].map(csvCell).join(',');
     });
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = [headers.map(csvCell).join(','), ...rows].join('\r\n');
+    const csvUrl = URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `library_issues_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('href', csvUrl);
+    link.setAttribute('download', `library_issues_${getTodayDate()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(csvUrl), 0);
     showToast('Exported issue history to CSV', 'success');
   };
 

@@ -35,11 +35,12 @@ export async function getBooks(
   }));
 
   if (search) {
-    const s = search.toLowerCase();
+    const s = search.trim().toLowerCase();
     books = books.filter(
       (book) =>
         book.title?.toLowerCase().includes(s) ||
         book.author?.toLowerCase().includes(s) ||
+        book.subject?.toLowerCase().includes(s) ||
         book.isbn?.toLowerCase().includes(s)
     );
   }
@@ -116,7 +117,7 @@ export async function updateBook(
   updates: Partial<Omit<Book, 'id' | 'created_at' | 'qr_token'>>
 ): Promise<void> {
   const bookRef = doc(db, 'books', id);
-  await runTransaction(db, async (transaction) => {
+  await withFirestoreTimeout(runTransaction(db, async (transaction) => {
     const bookSnap = await withFirestoreTimeout(
       transaction.get(bookRef),
       'Loading book before updating'
@@ -147,5 +148,5 @@ export async function updateBook(
       inventory_revision: (book.inventory_revision ?? 0) + 1,
       updated_at: new Date().toISOString(),
     });
-  });
+  }), 'Updating book');
 }

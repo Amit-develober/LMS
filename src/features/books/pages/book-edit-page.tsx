@@ -2,11 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { getBookById, updateBook } from '@/features/books/services/books';
 import { bookSchema, type BookFormInput } from '@/shared/validation/schemas';
 import { useToast } from '@/shared/components/ui/toast';
+import { invalidateLibraryQueries } from '@/shared/lib/invalidate-library-queries';
 import type { Book } from '@/shared/types';
 import { ArrowLeft, Save, Loader2, AlertTriangle } from 'lucide-react';
 
@@ -14,6 +16,7 @@ export default function EditBookPage() {
   const router = useRouter();
   const params = useParams();
   const bookId = params.id as string;
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -86,6 +89,7 @@ export default function EditBookPage() {
         total_copies: data.total_copies,
       });
 
+      await invalidateLibraryQueries(queryClient);
       showToast('Book updated successfully!', 'success');
       router.push(`/books/${bookId}`);
     } catch (error: unknown) {
@@ -100,6 +104,19 @@ export default function EditBookPage() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--primary)' }} />
+      </div>
+    );
+  }
+
+  if (!book) {
+    return (
+      <div className="py-16 text-center space-y-3">
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          Book details could not be loaded.
+        </p>
+        <button onClick={() => router.push('/books')} className="text-sm font-medium text-blue-600">
+          Back to books
+        </button>
       </div>
     );
   }

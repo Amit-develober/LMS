@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getStudents, getStudentById, addStudent, updateStudent } from '@/features/students/services/students';
+import { invalidateLibraryQueries } from '@/shared/lib/invalidate-library-queries';
 import type { Student, StudentWithBorrowInfo } from '@/shared/types';
 
 export function useStudents(search?: string, classNameFilter?: string) {
@@ -26,7 +27,7 @@ export function useAddStudent() {
   return useMutation({
     mutationFn: (data: Omit<Student, 'id' | 'created_at' | 'updated_at'>) => addStudent(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['students'] });
+      return invalidateLibraryQueries(queryClient);
     },
   });
 }
@@ -34,10 +35,15 @@ export function useAddStudent() {
 export function useUpdateStudent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Partial<Student> }) => updateStudent(id, updates),
-    onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ['students'] });
-      queryClient.invalidateQueries({ queryKey: ['students', id] });
+    mutationFn: ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<Omit<Student, 'id' | 'created_at' | 'updated_at'>>;
+    }) => updateStudent(id, updates),
+    onSuccess: () => {
+      return invalidateLibraryQueries(queryClient);
     },
   });
 }

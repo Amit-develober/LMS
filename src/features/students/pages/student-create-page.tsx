@@ -3,11 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { addStudent, getStudents } from '@/features/students/services/students';
+import { addStudent, searchStudents } from '@/features/students/services/students';
+import { FirestoreRequestTimeoutError } from '@/shared/firebase/firestore-timeout';
+import { invalidateLibraryQueries } from '@/shared/lib/invalidate-library-queries';
 import { useToast } from '@/shared/components/ui/toast';
-import { studentSchema, StudentFormInput } from '@/shared/validation/schemas';
+import { studentSchema, type StudentFormInput } from '@/shared/validation/schemas';
 import {
   UserPlus,
   ArrowLeft,
@@ -18,10 +21,25 @@ import {
   GraduationCap,
 } from 'lucide-react';
 
+type PendingStudentRegistration = {
+  id: string;
+  data: Parameters<typeof addStudent>[0];
+};
+
+function getRegistrationError(error: unknown): string {
+  if (error instanceof FirestoreRequestTimeoutError) {
+    return `${error.message} The save may still complete. Retry safely; it reuses the same student ID.`;
+  }
+  return error instanceof Error ? error.message : 'Failed to register student';
+}
+
 export default function NewStudentPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const [pendingAttempt, setPendingAttempt] = useState<PendingStudentRegistration | null>(null);
+  const [registrationError, setRegistrationError] = useState('');
 
   const {
     register,
@@ -38,31 +56,42 @@ export default function NewStudentPage() {
   });
 
   const onSubmit = async (data: StudentFormInput) => {
+    if (submitting) return;
     setSubmitting(true);
-    try {
-      const existing = await getStudents(data.admission_number.trim());
-      const match = existing.find(
-        (s) => s.admission_number.toLowerCase() === data.admission_number.trim().toLowerCase()
-      );
+    setRegistrationError('');
+    let attempt = pendingAttempt;
 
-      if (match) {
-        showToast('A student with this admission number is already registered', 'error');
-        setSubmitting(false);
-        return;
+    try {
+      if (!attempt) {
+        const studentData = {
+          full_name: data.full_name.trim(),
+          admission_number: data.admission_number.trim(),
+          class_name: data.class_name.trim(),
+          section: data.section.trim(),
+        };
+        const existing = await searchStudents(studentData.admission_number);
+        const match = existing.find(
+          (student) =>
+            student.admission_number.toLowerCase() === studentData.admission_number.toLowerCase()
+        );
+
+        if (match) {
+          showToast('A student with this admission number is already registered', 'error');
+          return;
+        }
+
+        attempt = { id: crypto.randomUUID(), data: studentData };
+        setPendingAttempt(attempt);
       }
 
-      const newId = await addStudent({
-        full_name: data.full_name.trim(),
-        admission_number: data.admission_number.trim(),
-        class_name: data.class_name.trim(),
-        section: data.section.trim(),
-      });
+      const newId = await addStudent(attempt.data, attempt.id);
+      await invalidateLibraryQueries(queryClient);
 
-      showToast(`Student ${data.full_name} registered successfully!`, 'success');
+      setPendingAttempt(null);
+      showToast(`Student ${attempt.data.full_name} registered successfully!`, 'success');
       router.push(`/students/${newId}`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'An error occurred';
-      showToast(msg, 'error');
+      setRegistrationError(getRegistrationError(err));
     } finally {
       setSubmitting(false);
     }
@@ -92,6 +121,16 @@ export default function NewStudentPage() {
       {/* Form Card */}
       <div className="card p-6 sm:p-8">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {registrationError && (
+            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {registrationError}
+              {pendingAttempt && (
+                <p className="mt-1">
+                  Your form is preserved. Retry uses the same student ID to avoid duplicate records.
+                </p>
+              )}
+            </div>
+          )}
           {/* Full Name */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -103,6 +142,7 @@ export default function NewStudentPage() {
                 type="text"
                 placeholder="e.g. Ravi Kumar"
                 {...register('full_name')}
+                disabled={submitting || !!pendingAttempt}
                 className={`input-field pl-9 ${errors.full_name ? 'border-rose-400' : ''}`}
               />
             </div>
@@ -122,6 +162,7 @@ export default function NewStudentPage() {
                 type="text"
                 placeholder="e.g. ADM-2024-001"
                 {...register('admission_number')}
+                disabled={submitting || !!pendingAttempt}
                 className={`input-field pl-9 font-mono ${
                   errors.admission_number ? 'border-rose-400' : ''
                 }`}
@@ -145,6 +186,7 @@ export default function NewStudentPage() {
                   type="text"
                   placeholder="e.g. XI or 11"
                   {...register('class_name')}
+                  disabled={submitting || !!pendingAttempt}
                   className={`input-field pl-9 ${errors.class_name ? 'border-rose-400' : ''}`}
                 />
               </div>
@@ -161,6 +203,7 @@ export default function NewStudentPage() {
                 type="text"
                 placeholder="e.g. A, B, Science"
                 {...register('section')}
+                disabled={submitting || !!pendingAttempt}
                 className={`input-field ${errors.section ? 'border-rose-400' : ''}`}
               />
               {errors.section && (
@@ -190,7 +233,7 @@ export default function NewStudentPage() {
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
-                  Save Student Profile
+                  {pendingAttempt ? 'Retry Registration' : 'Save Student Profile'}
                 </>
               )}
             </button>

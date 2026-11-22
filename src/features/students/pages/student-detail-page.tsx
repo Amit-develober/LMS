@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { getStudentById } from '@/features/students/services/students';
 import { getIssueRecords, returnBook } from '@/features/circulation/services/issue-records';
+import { invalidateLibraryQueries } from '@/shared/lib/invalidate-library-queries';
 import { useToast } from '@/shared/components/ui/toast';
 import { formatDate, isOverdue } from '@/shared/utils/date';
 import { Student, IssueRecordWithDetails } from '@/shared/types';
@@ -26,6 +28,7 @@ export default function StudentDetailPage() {
   const params = useParams();
   const id = params?.id as string;
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   const [student, setStudent] = useState<Student | null>(null);
@@ -64,7 +67,8 @@ export default function StudentDetailPage() {
     try {
       await returnBook(recordId);
       showToast(`Returned copy of ${bookTitle} successfully`, 'success');
-      fetchStudentData();
+      await invalidateLibraryQueries(queryClient);
+      await fetchStudentData();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error returning book';
       showToast(msg, 'error');
@@ -81,7 +85,16 @@ export default function StudentDetailPage() {
     );
   }
 
-  if (!student) return null;
+  if (!student) {
+    return (
+      <div className="py-16 text-center space-y-3">
+        <p className="text-sm text-gray-600">Student details could not be loaded.</p>
+        <Link href="/students" className="text-sm font-medium text-blue-600">
+          Back to students
+        </Link>
+      </div>
+    );
+  }
 
   const activeBorrows = records.filter((r) => !r.return_date);
   const returnedBorrows = records.filter((r) => r.return_date);

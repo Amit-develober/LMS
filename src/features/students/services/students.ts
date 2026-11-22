@@ -1,10 +1,10 @@
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
   getDocs,
   query,
+  setDoc,
   updateDoc,
   where,
 } from 'firebase/firestore';
@@ -25,7 +25,7 @@ export async function getStudents(
   }));
 
   if (search) {
-    const s = search.toLowerCase();
+    const s = search.trim().toLowerCase();
     students = students.filter(
       (student) =>
         student.full_name?.toLowerCase().includes(s) ||
@@ -62,6 +62,27 @@ export async function getStudents(
   }));
 }
 
+export async function searchStudents(search: string): Promise<Student[]> {
+  const normalizedSearch = search.trim().toLowerCase();
+  if (!normalizedSearch) return [];
+
+  const snapshot = await withFirestoreTimeout(
+    getDocs(collection(db, 'students')),
+    'Searching students'
+  );
+
+  return snapshot.docs
+    .map((studentDoc) => ({
+      id: studentDoc.id,
+      ...(studentDoc.data() as Omit<Student, 'id'>),
+    }))
+    .filter(
+      (student) =>
+        student.full_name?.toLowerCase().includes(normalizedSearch) ||
+        student.admission_number?.toLowerCase().includes(normalizedSearch)
+    );
+}
+
 export async function getStudentById(id: string): Promise<StudentWithBorrowInfo | null> {
   const studentRef = doc(db, 'students', id);
   const snap = await withFirestoreTimeout(getDoc(studentRef), 'Loading student details');
@@ -87,21 +108,26 @@ export async function getStudentById(id: string): Promise<StudentWithBorrowInfo 
 }
 
 export async function addStudent(
-  studentData: Omit<Student, 'id' | 'created_at' | 'updated_at'>
+  studentData: Omit<Student, 'id' | 'created_at' | 'updated_at'>,
+  studentId = doc(collection(db, 'students')).id
 ): Promise<string> {
-  const studentsRef = collection(db, 'students');
-  const docRef = await addDoc(studentsRef, {
+  const studentRef = doc(db, 'students', studentId);
+  const now = new Date().toISOString();
+  await withFirestoreTimeout(setDoc(studentRef, {
     ...studentData,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  });
-  return docRef.id;
+    created_at: now,
+    updated_at: now,
+  }), 'Registering student');
+  return studentRef.id;
 }
 
-export async function updateStudent(id: string, updates: Partial<Student>): Promise<void> {
+export async function updateStudent(
+  id: string,
+  updates: Partial<Omit<Student, 'id' | 'created_at' | 'updated_at'>>
+): Promise<void> {
   const studentRef = doc(db, 'students', id);
-  await updateDoc(studentRef, {
+  await withFirestoreTimeout(updateDoc(studentRef, {
     ...updates,
     updated_at: new Date().toISOString(),
-  });
+  }), 'Updating student');
 }

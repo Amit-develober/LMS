@@ -87,10 +87,23 @@ export default function BookDetailPage() {
     img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
   };
 
-  if (loading || !book) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--primary)' }} />
+      </div>
+    );
+  }
+
+  if (!book) {
+    return (
+      <div className="py-16 text-center space-y-3">
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          Book details could not be loaded.
+        </p>
+        <Link href="/books" className="text-sm font-medium text-blue-600">
+          Back to books
+        </Link>
       </div>
     );
   }

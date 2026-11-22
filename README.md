@@ -194,4 +194,4 @@ The unused Supabase SQL prototype, settings/preferences screen, public sign-up f
    ```bash
    npx firebase-tools deploy --only firestore:rules --project YOUR_FIREBASE_PROJECT_ID
    ```
-   Do not replace the UID check with an allow-all rule. If registration or data pages cannot reach Firestore, the app now reports a timeout after 15 seconds; a timed-out book registration can be retried safely without creating a duplicate.
+   Do not replace the UID check with an allow-all rule. If a Firestore request does not complete within 60 seconds, the app reports a timeout. Timed-out book and student registrations can be retried safely with the same document ID.

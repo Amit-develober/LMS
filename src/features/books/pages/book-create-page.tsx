@@ -2,11 +2,13 @@
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { addBook } from '@/features/books/services/books';
 import { bookSchema, type BookFormInput } from '@/shared/validation/schemas';
 import { FirestoreRequestTimeoutError } from '@/shared/firebase/firestore-timeout';
+import { invalidateLibraryQueries } from '@/shared/lib/invalidate-library-queries';
 import { useToast } from '@/shared/components/ui/toast';
 import { QRCodeSVG } from 'qrcode.react';
 import {
@@ -50,6 +52,7 @@ function getRegistrationError(error: unknown): string {
 
 export default function NewBookPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [pendingAttempt, setPendingAttempt] = useState<PendingBookRegistration | null>(null);
@@ -80,6 +83,7 @@ export default function NewBookPage() {
 
     try {
       const id = await addBook(attempt.data, attempt.id);
+      await invalidateLibraryQueries(queryClient);
 
       setPendingAttempt(null);
       setCreatedBook({

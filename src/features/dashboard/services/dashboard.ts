@@ -12,10 +12,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   let totalPhysicalCopies = 0;
   let totalBookTitles = 0;
+  const activeBookIds = new Set<string>();
 
   booksSnap.forEach((doc) => {
     const data = doc.data() as Book;
     if (!data.is_archived) {
+      activeBookIds.add(doc.id);
       totalBookTitles++;
       totalPhysicalCopies += Number(data.total_copies) || 0;
     }
@@ -24,7 +26,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   let issuedCopies = 0;
   issuesSnap.forEach((doc) => {
     const data = doc.data() as IssueRecord;
-    if (!data.return_date) {
+    if (!data.return_date && activeBookIds.has(data.book_id)) {
       issuedCopies++;
     }
   });

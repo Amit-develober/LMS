@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { getStudentById, updateStudent, getStudents } from '@/features/students/services/students';
+import { getStudentById, updateStudent, searchStudents } from '@/features/students/services/students';
+import { invalidateLibraryQueries } from '@/shared/lib/invalidate-library-queries';
 import { useToast } from '@/shared/components/ui/toast';
 import { studentSchema, StudentFormInput } from '@/shared/validation/schemas';
 import {
@@ -21,10 +23,12 @@ export default function EditStudentPage() {
   const params = useParams();
   const id = params?.id as string;
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const {
     register,
@@ -41,6 +45,7 @@ export default function EditStudentPage() {
         const data = await getStudentById(id);
         if (!data) {
           showToast('Student not found', 'error');
+          setLoadError(true);
           router.push('/students');
           return;
         }
@@ -52,6 +57,7 @@ export default function EditStudentPage() {
           section: data.section,
         });
       } catch {
+        setLoadError(true);
         showToast('Error loading student', 'error');
       } finally {
         setLoading(false);
@@ -63,7 +69,7 @@ export default function EditStudentPage() {
   const onSubmit = async (data: StudentFormInput) => {
     setSubmitting(true);
     try {
-      const allStudents = await getStudents(data.admission_number.trim());
+      const allStudents = await searchStudents(data.admission_number.trim());
       const duplicate = allStudents.find(
         (s) =>
           s.id !== id &&
@@ -83,6 +89,7 @@ export default function EditStudentPage() {
         section: data.section.trim(),
       });
 
+      await invalidateLibraryQueries(queryClient);
       showToast('Student details updated successfully', 'success');
       router.push(`/students/${id}`);
     } catch (err: unknown) {
@@ -97,6 +104,17 @@ export default function EditStudentPage() {
     return (
       <div className="py-20 flex justify-center items-center">
         <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="py-16 text-center space-y-3">
+        <p className="text-sm text-gray-600">Student details could not be loaded.</p>
+        <Link href="/students" className="text-sm font-medium text-blue-600">
+          Back to students
+        </Link>
       </div>
     );
   }

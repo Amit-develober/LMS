@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { getBookById, getBooks } from '@/features/books/services/books';
 import { getIssueRecords, returnBook } from '@/features/circulation/services/issue-records';
+import { invalidateLibraryQueries } from '@/shared/lib/invalidate-library-queries';
 import { useToast } from '@/shared/components/ui/toast';
 import { formatDate, isOverdue } from '@/shared/utils/date';
 import { BookWithAvailability, IssueRecordWithDetails } from '@/shared/types';
@@ -25,6 +27,7 @@ import {
 function ReturnBookContent() {
   const searchParams = useSearchParams();
   const initialBookId = searchParams.get('book_id');
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   // Book search & selection
@@ -123,6 +126,7 @@ function ReturnBookContent() {
     setSubmitting(true);
     try {
       await returnBook(selectedRecord.id);
+      await invalidateLibraryQueries(queryClient);
 
       showToast(
         `Returned copy from ${selectedRecord.student.full_name} successfully`,

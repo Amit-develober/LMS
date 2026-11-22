@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/shared/firebase/client';
 import { withFirestoreTimeout } from '@/shared/firebase/firestore-timeout';
+import { getTodayDate, isValidDateOnly } from '@/shared/utils/date';
 import type {
   Book,
   IssueRecord,
@@ -18,8 +19,39 @@ import type {
   Student,
 } from '@/shared/types';
 
-export async function issueBook(bookId: string, studentId: string, dueDate: string): Promise<string> {
-  return runTransaction(db, async (transaction) => {
+export async function issueBook(
+  bookId: string,
+  studentId: string,
+  dueDate: string,
+  issueRecordId: string
+): Promise<string> {
+  const issueDate = getTodayDate();
+  if (!isValidDateOnly(dueDate)) {
+    throw new Error('Enter a valid due date');
+  }
+
+  const issueRef = doc(db, 'issue_records', issueRecordId);
+  return withFirestoreTimeout(runTransaction(db, async (transaction) => {
+    const existingIssueSnap = await withFirestoreTimeout(
+      transaction.get(issueRef),
+      'Checking existing loan'
+    );
+    if (existingIssueSnap.exists()) {
+      const existingIssue = existingIssueSnap.data() as IssueRecord;
+      if (
+        existingIssue.book_id === bookId &&
+        existingIssue.student_id === studentId &&
+        existingIssue.due_date === dueDate
+      ) {
+        return issueRecordId;
+      }
+      throw new Error('This loan request ID is already in use');
+    }
+
+    if (dueDate < issueDate) {
+      throw new Error('Due date cannot be before today');
+    }
+
     const bookRef = doc(db, 'books', bookId);
     const bookSnap = await withFirestoreTimeout(
       transaction.get(bookRef),
@@ -28,6 +60,15 @@ export async function issueBook(bookId: string, studentId: string, dueDate: stri
 
     if (!bookSnap.exists()) {
       throw new Error('Book not found');
+    }
+
+    const studentRef = doc(db, 'students', studentId);
+    const studentSnap = await withFirestoreTimeout(
+      transaction.get(studentRef),
+      'Checking student before issuing'
+    );
+    if (!studentSnap.exists()) {
+      throw new Error('Student not found');
     }
 
     const bookData = bookSnap.data() as Book;
@@ -47,14 +88,11 @@ export async function issueBook(bookId: string, studentId: string, dueDate: stri
       throw new Error(`No available copies left. (Total: ${bookData.total_copies}, Issued: ${activeIssuesSnap.size})`);
     }
 
-    const newIssueRef = doc(collection(db, 'issue_records'));
-    const issueDate = new Date().toISOString().split('T')[0];
-
     transaction.update(bookRef, {
       inventory_revision: (bookData.inventory_revision ?? 0) + 1,
       updated_at: new Date().toISOString(),
     });
-    transaction.set(newIssueRef, {
+    transaction.set(issueRef, {
       book_id: bookId,
       student_id: studentId,
       issue_date: issueDate,
@@ -63,13 +101,13 @@ export async function issueBook(bookId: string, studentId: string, dueDate: stri
       created_at: new Date().toISOString(),
     });
 
-    return newIssueRef.id;
-  });
+    return issueRecordId;
+  }), 'Issuing book');
 }
 
 export async function returnBook(issueRecordId: string): Promise<boolean> {
   const recordRef = doc(db, 'issue_records', issueRecordId);
-  await runTransaction(db, async (transaction) => {
+  await withFirestoreTimeout(runTransaction(db, async (transaction) => {
     const snap = await withFirestoreTimeout(
       transaction.get(recordRef),
       'Loading issue record before return'
@@ -80,13 +118,13 @@ export async function returnBook(issueRecordId: string): Promise<boolean> {
 
     const record = snap.data() as IssueRecord;
     if (record.return_date) {
-      throw new Error('This book has already been returned');
+      return;
     }
 
     transaction.update(recordRef, {
-      return_date: new Date().toISOString().split('T')[0],
+      return_date: getTodayDate(),
     });
-  });
+  }), 'Returning book');
 
   return true;
 }

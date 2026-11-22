@@ -3,12 +3,15 @@
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { getBookById, getBooks } from '@/features/books/services/books';
-import { getStudents } from '@/features/students/services/students';
+import { searchStudents } from '@/features/students/services/students';
 import { issueBook } from '@/features/circulation/services/issue-records';
+import { FirestoreRequestTimeoutError } from '@/shared/firebase/firestore-timeout';
+import { invalidateLibraryQueries } from '@/shared/lib/invalidate-library-queries';
 import { useToast } from '@/shared/components/ui/toast';
 import { getDefaultDueDate, getTodayDate, formatDate } from '@/shared/utils/date';
-import { BookWithAvailability, Student } from '@/shared/types';
+import type { BookWithAvailability, Student } from '@/shared/types';
 import {
   BookPlus,
   Search,
@@ -23,9 +26,28 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+type PendingIssueAttempt = {
+  id: string;
+  bookId: string;
+  studentId: string;
+  dueDate: string;
+  bookTitle: string;
+  studentName: string;
+};
+
+function mayHaveCommittedIssue(error: unknown): boolean {
+  if (error instanceof FirestoreRequestTimeoutError) return true;
+  if (typeof error !== 'object' || error === null || !('code' in error)) return false;
+  const code = error.code;
+  if (typeof code !== 'string') return false;
+  return ['aborted', 'cancelled', 'deadline-exceeded', 'internal', 'resource-exhausted', 'unavailable', 'unknown']
+    .some((expectedCode) => code.endsWith(`/${expectedCode}`) || code === expectedCode);
+}
+
 function IssueBookContent() {
   const searchParams = useSearchParams();
   const initialBookId = searchParams.get('book_id');
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   // Search and selection states
@@ -41,6 +63,7 @@ function IssueBookContent() {
 
   const [dueDate, setDueDate] = useState(getDefaultDueDate());
   const [submitting, setSubmitting] = useState(false);
+  const [pendingIssueAttempt, setPendingIssueAttempt] = useState<PendingIssueAttempt | null>(null);
   const [issueSuccess, setIssueSuccess] = useState<{
     bookTitle: string;
     studentName: string;
@@ -107,7 +130,7 @@ function IssueBookContent() {
     const timer = setTimeout(async () => {
       setLoadingStudents(true);
       try {
-        const students = await getStudents(studentSearch);
+        const students = await searchStudents(studentSearch);
         if (!cancelled) setStudentsList(students.slice(0, 6));
       } catch {
         if (!cancelled) showToast('Failed to search students', 'error');
@@ -124,25 +147,37 @@ function IssueBookContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedBook || !selectedStudent) {
-      showToast('Please select both a book and a student', 'error');
-      return;
-    }
-
-    if (selectedBook.available_copies <= 0) {
-      showToast('No copies available for this book', 'error');
-      return;
+    let attempt = pendingIssueAttempt;
+    if (!attempt) {
+      if (!selectedBook || !selectedStudent) {
+        showToast('Please select both a book and a student', 'error');
+        return;
+      }
+      if (selectedBook.available_copies <= 0) {
+        showToast('No copies available for this book', 'error');
+        return;
+      }
+      attempt = {
+        id: crypto.randomUUID(),
+        bookId: selectedBook.id,
+        studentId: selectedStudent.id,
+        dueDate,
+        bookTitle: selectedBook.title,
+        studentName: selectedStudent.full_name,
+      };
+      setPendingIssueAttempt(attempt);
     }
 
     setSubmitting(true);
     try {
-      await issueBook(selectedBook.id, selectedStudent.id, dueDate);
+      await issueBook(attempt.bookId, attempt.studentId, attempt.dueDate, attempt.id);
+      setPendingIssueAttempt(null);
 
-      showToast(`Book issued successfully to ${selectedStudent.full_name}`, 'success');
+      showToast(`Book issued successfully to ${attempt.studentName}`, 'success');
       setIssueSuccess({
-        bookTitle: selectedBook.title,
-        studentName: selectedStudent.full_name,
-        dueDate: dueDate,
+        bookTitle: attempt.bookTitle,
+        studentName: attempt.studentName,
+        dueDate: attempt.dueDate,
       });
 
       // Update local availability
@@ -155,8 +190,23 @@ function IssueBookContent() {
             }
           : null
       );
+
+      try {
+        await invalidateLibraryQueries(queryClient);
+      } catch (error) {
+        console.error('Loan was issued, but cached library data could not be refreshed:', error);
+        showToast('Loan was issued, but some screens may need a refresh.', 'error');
+      }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'An error occurred';
+      const mayHaveCommitted = mayHaveCommittedIssue(err);
+      if (!mayHaveCommitted) {
+        setPendingIssueAttempt(null);
+      }
+      const msg = mayHaveCommitted && err instanceof Error
+        ? `${err.message} Retry safely; the same loan ID will be reused.`
+        : err instanceof Error
+          ? err.message
+          : 'An error occurred';
       showToast(msg, 'error');
     } finally {
       setSubmitting(false);
@@ -170,6 +220,7 @@ function IssueBookContent() {
     setStudentSearch('');
     setDueDate(getDefaultDueDate());
     setIssueSuccess(null);
+    setPendingIssueAttempt(null);
   };
 
   return (
@@ -238,7 +289,13 @@ function IssueBookContent() {
               </div>
               <Link
                 href="/scan"
-                className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                aria-disabled={!!pendingIssueAttempt}
+                onClick={(event) => {
+                  if (pendingIssueAttempt) event.preventDefault();
+                }}
+                className={`text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 ${
+                  pendingIssueAttempt ? 'pointer-events-none opacity-50' : ''
+                }`}
               >
                 Scan QR instead <ArrowRight className="w-3 h-3" />
               </Link>
@@ -250,6 +307,7 @@ function IssueBookContent() {
                 type="text"
                 placeholder="Search by book title, author, or subject..."
                 value={bookSearch}
+                disabled={!!pendingIssueAttempt}
                 onChange={(e) => {
                   setBookSearch(e.target.value);
                   setBooksList([]);
@@ -335,6 +393,7 @@ function IssueBookContent() {
                 </div>
                 <button
                   type="button"
+                  disabled={!!pendingIssueAttempt}
                   onClick={() => {
                     setSelectedBook(null);
                     setBookSearch('');
@@ -358,7 +417,13 @@ function IssueBookContent() {
               </div>
               <Link
                 href="/students/new"
-                className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                aria-disabled={!!pendingIssueAttempt}
+                onClick={(event) => {
+                  if (pendingIssueAttempt) event.preventDefault();
+                }}
+                className={`text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 ${
+                  pendingIssueAttempt ? 'pointer-events-none opacity-50' : ''
+                }`}
               >
                 <UserPlus className="w-3.5 h-3.5" /> Register New Student
               </Link>
@@ -370,6 +435,7 @@ function IssueBookContent() {
                 type="text"
                 placeholder="Search by student name or admission number..."
                 value={studentSearch}
+                disabled={!!pendingIssueAttempt}
                 onChange={(e) => {
                   setStudentSearch(e.target.value);
                   setStudentsList([]);
@@ -434,6 +500,7 @@ function IssueBookContent() {
                 </div>
                 <button
                   type="button"
+                  disabled={!!pendingIssueAttempt}
                   onClick={() => {
                     setSelectedStudent(null);
                     setStudentSearch('');
@@ -464,6 +531,7 @@ function IssueBookContent() {
                   type="date"
                   min={getTodayDate()}
                   value={dueDate}
+                  disabled={!!pendingIssueAttempt}
                   onChange={(e) => setDueDate(e.target.value)}
                   className="input-field"
                   required
@@ -532,10 +600,9 @@ function IssueBookContent() {
             <button
               type="submit"
               disabled={
-                !selectedBook ||
-                !selectedStudent ||
                 submitting ||
-                (selectedBook && selectedBook.available_copies <= 0)
+                (!pendingIssueAttempt &&
+                  (!selectedBook || !selectedStudent || selectedBook.available_copies <= 0))
               }
               className="mt-6 w-full btn-primary py-3 flex items-center justify-center gap-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
             >
@@ -547,7 +614,7 @@ function IssueBookContent() {
               ) : (
                 <>
                   <BookPlus className="w-4 h-4" />
-                  Confirm & Issue Book
+                  {pendingIssueAttempt ? 'Retry Issue' : 'Confirm & Issue Book'}
                 </>
               )}
             </button>
