@@ -20,7 +20,14 @@ export async function getBooks(
 ): Promise<BookWithAvailability[]> {
   const booksRef = collection(db, 'books');
   const q = query(booksRef, where('is_archived', '==', showArchived));
-  const snapshot = await withFirestoreTimeout(getDocs(q), 'Loading books');
+  const issuesRef = collection(db, 'issue_records');
+  const [snapshot, activeIssuesSnapshot] = await Promise.all([
+    withFirestoreTimeout(getDocs(q), 'Loading books'),
+    withFirestoreTimeout(
+      getDocs(query(issuesRef, where('return_date', '==', null))),
+      'Loading active loans'
+    ),
+  ]);
 
   let books: Book[] = snapshot.docs.map((d) => ({
     id: d.id,
@@ -41,11 +48,6 @@ export async function getBooks(
     books = books.filter((book) => book.subject === subjectFilter);
   }
 
-  const issuesRef = collection(db, 'issue_records');
-  const activeIssuesSnapshot = await withFirestoreTimeout(
-    getDocs(query(issuesRef, where('return_date', '==', null))),
-    'Loading active loans'
-  );
   const issuedCountMap: Record<string, number> = {};
 
   activeIssuesSnapshot.forEach((issue) => {

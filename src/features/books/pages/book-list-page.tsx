@@ -130,7 +130,13 @@ export default function BooksPage() {
   const [subjectFilter, setSubjectFilter] = useState('');
   const [showArchived, setShowArchived] = useState(false);
 
-  const { data: books = [], isLoading, error } = useBooks(search, subjectFilter, showArchived);
+  const {
+    data: books = [],
+    isLoading,
+    error,
+    refetch,
+    isRefetching,
+  } = useBooks(search, subjectFilter, showArchived);
   const archiveMutation = useArchiveBook();
 
   const handleArchive = useCallback((bookId: string, archive: boolean) => {
@@ -145,6 +151,20 @@ export default function BooksPage() {
     return (
       <div role="alert" className="text-center py-16 text-red-500">
         {error instanceof Error ? error.message : 'Failed to load books'}
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={isRefetching}
+            className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
+            style={{
+              backgroundColor: 'var(--primary)',
+              color: 'white',
+            }}
+          >
+            {isRefetching ? 'Retrying...' : 'Retry'}
+          </button>
+        </div>
       </div>
     );
   }

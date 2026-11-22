@@ -1,8 +1,8 @@
-const FIRESTORE_REQUEST_TIMEOUT_MS = 15_000;
+const FIRESTORE_REQUEST_TIMEOUT_MS = 60_000;
 
 export class FirestoreRequestTimeoutError extends Error {
   constructor(operation: string) {
-    super(`${operation} did not complete within 15 seconds.`);
+    super(`${operation} did not complete within 60 seconds.`);
     this.name = 'FirestoreRequestTimeoutError';
   }
 }
